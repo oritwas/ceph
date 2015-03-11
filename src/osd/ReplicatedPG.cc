@@ -6395,6 +6395,19 @@ int ReplicatedPG::try_flush_mark_clean(FlushOpRef fop)
     return -EBUSY;
   }
 
+  if (!fop->blocking && scrubber.write_blocked_by_scrub(oid)) {
+    if (fop->op) {
+      dout(10) << __func__ << " blocked by scrub" << dendl;
+      requeue_op(fop->op);
+      requeue_ops(fop->dup_ops);
+      return -EAGAIN;    // will retry
+    } else {
+      osd->logger->inc(l_osd_tier_try_flush_fail);
+      cancel_flush(fop, false);
+      return -ECANCELED;
+    }
+  }
+
   // successfully flushed; can we clear the dirty bit?
   // try to take the lock manually, since we don't
   // have a ctx yet.
@@ -6460,14 +6473,14 @@ void ReplicatedPG::cancel_flush(FlushOpRef fop, bool requeue)
     osd->objecter->op_cancel(fop->objecter_tid, -ECANCELED);
     fop->objecter_tid = 0;
   }
+  if (fop->blocking) {
+    fop->obc->stop_block();
+    kick_object_context_blocked(fop->obc);
+  }
   if (requeue) {
     if (fop->op)
       requeue_op(fop->op);
     requeue_ops(fop->dup_ops);
-  }
-  if (fop->blocking) {
-    fop->obc->stop_block();
-    kick_object_context_blocked(fop->obc);
   }
   if (fop->on_flush) {
     Context *on_flush = fop->on_flush;
@@ -9505,6 +9518,13 @@ void ReplicatedPG::on_change(ObjectStore::Transaction *t)
     else
       p->second.clear();
   }
+  for (map<hobject_t, list<Context*> >::iterator i =
+	 callbacks_for_degraded_object.begin();
+       i != callbacks_for_degraded_object.end();
+    ) {
+    finish_degraded_object((i++)->first);
+  }
+  assert(callbacks_for_degraded_object.empty());
 
   if (is_primary()) {
     requeue_ops(waiting_for_cache_not_full);
