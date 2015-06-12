@@ -983,6 +983,25 @@ struct RGWRegionMap {
 };
 WRITE_CLASS_ENCODER(RGWRegionMap)
 
+struct RGWRealmName {
+  string realm_id;
+
+  void encode(bufferlist& bl) const {
+    ENCODE_START(1, 1, bl);
+    ::encode(realm_id, bl);
+    ENCODE_FINISH(bl);
+  }
+
+  void decode(bufferlist::iterator& bl) {
+    DECODE_START(1, bl);
+    ::decode(realm_id, bl);
+    DECODE_FINISH(bl);
+  }
+  void dump(Formatter *f) const;
+  void decode_json(JSONObj *obj);
+};
+WRITE_CLASS_ENCODER(RGWRealmName)
+
 class RGWDataChangesLog;
 class RGWReplicaLogger;
   
