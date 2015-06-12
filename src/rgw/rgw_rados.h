@@ -983,6 +983,26 @@ struct RGWRegionMap {
 };
 WRITE_CLASS_ENCODER(RGWRegionMap)
 
+struct RGWDefaultRealmInfo {
+  string realm_id;
+
+  void encode(bufferlist& bl) const {
+    ENCODE_START(1, 1, bl);
+    ::encode(realm_id, bl);
+    ENCODE_FINISH(bl);
+  }
+  
+  void decode(bufferlist::iterator& bl) {
+    DECODE_START(1, bl);
+    ::decode(realm_id, bl);
+    DECODE_FINISH(bl);
+  }
+
+  void dump(Formatter *f) const;
+  void decode_json(JSONObj *obj);
+};
+WRITE_CLASS_ENCODER(RGWDefaultRealmInfo)
+  
 struct RGWRealmName {
   string realm_id;
 
@@ -994,13 +1014,64 @@ struct RGWRealmName {
 
   void decode(bufferlist::iterator& bl) {
     DECODE_START(1, bl);
-    ::decode(realm_id, bl);
+    ::decode(realm_id, bl);  
     DECODE_FINISH(bl);
   }
+
   void dump(Formatter *f) const;
   void decode_json(JSONObj *obj);
 };
 WRITE_CLASS_ENCODER(RGWRealmName)
+
+struct RGWRealm {
+  string id;
+  string name;
+
+  string master_zonegroup;
+  map<string, RGWRegion> zonegroups;
+
+  CephContext *cct;
+  RGWRados *store;
+
+  RGWRealm() : cct(NULL), store(NULL) {}
+  RGWRealm(const string& _id, const string& _name) : id(_id), name(_name) {}  
+  RGWRealm(CephContext *_cct, RGWRados *_store): cct(_cct), store(_store){}
+  RGWRealm(const string& _name, CephContext *_cct, RGWRados *_store): name(_name), cct(_cct), store(_store){}
+
+  void encode(bufferlist& bl) const {
+    ENCODE_START(1, 1, bl);
+    ::encode(id, bl);
+    ::encode(name, bl);
+    ::encode(master_zonegroup, bl);
+    ::encode(zonegroups, bl);
+    ENCODE_FINISH(bl);
+  }
+
+  void decode(bufferlist::iterator& bl) {
+    DECODE_START(1, bl);
+    ::decode(id, bl);
+    ::decode(name, bl);
+    ::decode(master_zonegroup, bl);
+    ::decode(zonegroups, bl);
+    DECODE_FINISH(bl);
+  }
+
+  int init(CephContext *_cct, RGWRados *_store, bool setup_realm = true);
+  int store_name(bool exclusive);
+  int store_info(bool exclusive);
+  int read_info(const string& realm_id);
+  int read_id(const string& realm_name, string& realm_id);
+  int read_default(RGWDefaultRealmInfo& default_realm);
+  int set_as_default();
+  int create();
+  int delete_realm();
+  int rename(const string& new_name);
+  static int get_pool_name(CephContext *cct, string *pool_name);
+
+  void dump(Formatter *f) const;
+  void decode_json(JSONObj *obj);
+};
+WRITE_CLASS_ENCODER(RGWRealm )
 
 class RGWDataChangesLog;
 class RGWReplicaLogger;

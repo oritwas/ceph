@@ -774,6 +774,31 @@ void RGWDataChangesLogInfo::decode_json(JSONObj *obj)
   JSONDecoder::decode_json("last_update", last_update, obj);
 }
 
+
+void RGWRealm::dump(Formatter *f) const
+{
+  encode_json("name", name, f);
+  encode_json("id", id, f);
+  encode_json("master_zonegroup", master_zonegroup, f);
+  encode_json_map("zonegroups", zonegroups, f); 
+}
+
+static void decode_zonegroups(map<string, RGWRegion>& zonegroups, JSONObj *o)
+{
+  RGWRegion zg;
+  zg.decode_json(o);
+  zonegroups[zg.name] = zg;
+}
+
+void RGWRealm::decode_json(JSONObj *obj)
+{
+  JSONDecoder::decode_json("name", name, obj);
+  JSONDecoder::decode_json("id", id, obj);
+  JSONDecoder::decode_json("master_zonegroup", master_zonegroup, obj);
+  JSONDecoder::decode_json("zonegroups", zonegroups, decode_zonegroups, obj);
+}
+
+
 void KeystoneToken::Metadata::decode_json(JSONObj *obj)
 {
   JSONDecoder::decode_json("is_admin", is_admin, obj);
@@ -841,3 +866,4 @@ void KeystoneToken::decode_json(JSONObj *access_obj)
   JSONDecoder::decode_json("user", user, access_obj, true);
   JSONDecoder::decode_json("serviceCatalog", service_catalog, access_obj);
 }
+
