@@ -69,7 +69,14 @@ void _usage()
   cerr << "  quota set                  set quota params\n";
   cerr << "  quota enable               enable quota\n";
   cerr << "  quota disable              disable quota\n";
-  cerr << "  region get                 show region info\n";
+  cerr << "  realm create               create a new realm\n";
+  cerr << "  realm delete               delete a realm\n";
+  cerr << "  realm get                    show realm info\n";
+  cerr << "  realm get-default       get default realm name\n";
+  cerr << "  realm remove             remove a zonegroup from the realm\n";
+  cerr << "  realm rename             rename a realm\n";
+  cerr << "  realm set-default        set realm as default\n";
+  cerr << "  region get                   show region info\n";
   cerr << "  regions list               list all regions set on this cluster\n";
   cerr << "  region set                 set region info (requires infile)\n";
   cerr << "  region default             set default region\n";
@@ -138,6 +145,9 @@ void _usage()
   cerr << "                               replica mdlog get/delete\n";
   cerr << "                               replica datalog get/delete\n";
   cerr << "   --metadata-key=<key>      key to retrieve metadata from with metadata get\n";
+  cerr << "   --realm=<realm>     realm name\n";
+  cerr << "   --realm-id=<realm id>     realm id\n";
+  cerr << "   --realm-new-name=<realm new name>     realm new name\n";
   cerr << "   --rgw-region=<region>     region in which radosgw is running\n";
   cerr << "   --rgw-zone=<zone>         zone in which radosgw is running\n";
   cerr << "   --fix                     besides checking bucket index, will also fix it\n";
@@ -261,6 +271,13 @@ enum {
   OPT_REPLICALOG_GET,
   OPT_REPLICALOG_UPDATE,
   OPT_REPLICALOG_DELETE,
+  OPT_REALM_CREATE,
+  OPT_REALM_DELETE,
+  OPT_REALM_GET,
+  OPT_REALM_GET_DEFAULT,
+  OPT_REALM_REMOVE,
+  OPT_REALM_RENAME,
+  OPT_REALM_SET_DEFAULT,
 };
 
 static int get_cmd(const char *cmd, const char *prev_cmd, bool *need_more)
@@ -284,6 +301,7 @@ static int get_cmd(const char *cmd, const char *prev_cmd, bool *need_more)
       strcmp(cmd, "pool") == 0 ||
       strcmp(cmd, "pools") == 0 ||
       strcmp(cmd, "quota") == 0 ||
+      strcmp(cmd, "realm") == 0 ||
       strcmp(cmd, "region") == 0 ||
       strcmp(cmd, "regions") == 0 ||
       strcmp(cmd, "region-map") == 0 ||
@@ -399,6 +417,21 @@ static int get_cmd(const char *cmd, const char *prev_cmd, bool *need_more)
       return OPT_BI_PUT;
     if (strcmp(cmd, "list") == 0)
       return OPT_BI_LIST;
+  } else if (strcmp(prev_cmd, "realm") == 0) {
+    if (strcmp(cmd, "create") == 0)
+      return OPT_REALM_CREATE;
+    if (strcmp(cmd, "delete") == 0)
+      return OPT_REALM_DELETE;
+    if (strcmp(cmd, "get") == 0)
+	  return OPT_REALM_GET;
+    if (strcmp(cmd, "get-default") == 0)
+	  return OPT_REALM_GET_DEFAULT;
+    if (strcmp(cmd, "remove") == 0)
+      return OPT_REALM_REMOVE;
+    if (strcmp(cmd, "rename") == 0)
+      return OPT_REALM_RENAME;
+    if (strcmp(cmd, "set-default") == 0)
+      return OPT_REALM_SET_DEFAULT;
   } else if (strcmp(prev_cmd, "region") == 0) {
     if (strcmp(cmd, "get") == 0)
       return OPT_REGION_GET;
@@ -1038,6 +1071,7 @@ int main(int argc, char **argv)
   std::string date, subuser, access, format;
   std::string start_date, end_date;
   std::string key_type_str;
+  std::string realm_name, realm_id, realm_new_name;
   int key_type = KEY_TYPE_UNDEFINED;
   rgw_bucket bucket;
   uint32_t perm_mask = 0;
@@ -1285,6 +1319,12 @@ int main(int argc, char **argv)
         cerr << "ERROR: invalid bucket index entry type" << std::endl;
         return EINVAL;
       }
+    } else if (ceph_argparse_witharg(args, i, &val, "--realm-name", (char*)NULL)) {
+      realm_name = val;
+    } else if (ceph_argparse_witharg(args, i, &val, "--realm-id", (char*)NULL)) {
+      realm_id = val;
+    } else if (ceph_argparse_witharg(args, i, &val, "--realm-new-name", (char*)NULL)) {
+      realm_new_name = val;
     } else if (strncmp(*i, "-", 1) == 0) {
       cerr << "ERROR: invalid flag " << *i << std::endl;
       return EINVAL;
@@ -1352,8 +1392,10 @@ int main(int argc, char **argv)
                          opt_cmd == OPT_REGIONMAP_GET || opt_cmd == OPT_REGIONMAP_SET ||
                          opt_cmd == OPT_REGIONMAP_UPDATE ||
                          opt_cmd == OPT_ZONE_GET || opt_cmd == OPT_ZONE_SET ||
-                         opt_cmd == OPT_ZONE_LIST);
-
+                         opt_cmd == OPT_ZONE_LIST || opt_cmd == OPT_REALM_CREATE ||
+			 opt_cmd == OPT_REALM_DELETE || opt_cmd == OPT_REALM_GET ||
+			 opt_cmd == OPT_REALM_GET_DEFAULT || opt_cmd == OPT_REALM_REMOVE ||
+			 opt_cmd == OPT_REALM_RENAME || opt_cmd == OPT_REALM_SET_DEFAULT);
 
   if (raw_storage_op) {
     store = RGWStoreManager::get_raw_storage(g_ceph_context);
@@ -1371,7 +1413,121 @@ int main(int argc, char **argv)
   StoreDestructor store_destructor(store);
 
   if (raw_storage_op) {
-    switch (opt_cmd) {      
+    switch (opt_cmd) {
+    case OPT_REALM_CREATE:
+      {
+	RGWRealm realm(realm_name, g_ceph_context, store);
+	int ret = realm.create();
+	if (ret < 0) {
+	  cerr << "ERROR: couldn't create realm " << realm_name << ": " << cpp_strerror(-ret) << std::endl;
+	  return ret;
+	}
+      }
+      break;
+    case OPT_REALM_DELETE:
+      {
+	RGWRealm realm(realm_id, realm_name);
+	if (realm_name.empty() && realm_id.empty()) {
+	  cerr << "missing realm name or id" << std::endl;
+	  return -EINVAL;
+	}
+	int ret = realm.init(g_ceph_context, store);
+	if (ret < 0) {
+	  cerr << "realm.init failed: " << cpp_strerror(-ret) << std::endl;
+	  return -ret;
+	}
+	ret = realm.delete_obj();
+	if (ret < 0) {
+	  cerr << "ERROR: couldn't : " << cpp_strerror(-ret) << std::endl;
+	  return ret;
+	}
+
+      }
+      break;
+    case OPT_REALM_GET:
+      {
+	RGWRealm realm(realm_id, realm_name);
+	if (realm_name.empty() && realm_id.empty()) {
+	  cerr << "missing realm name or id" << std::endl;
+	  return -EINVAL;
+	}
+	int ret = realm.init(g_ceph_context, store);
+	if (ret < 0) {
+	  cerr << "realm.init failed: " << cpp_strerror(-ret) << std::endl;
+	  return -ret;
+	}
+	encode_json("realm", realm, formatter);
+	formatter->flush(cout);
+	cout << std::endl;
+      }
+      break;
+    case OPT_REALM_GET_DEFAULT:
+      {
+	RGWRealm realm(g_ceph_context, store);
+	string default_id;
+	int ret = realm.read_default_id(default_id);
+	if (ret == -ENOENT) {
+	  cout << "No default realm is set" << std::endl;
+	  return ret;
+	} else if (ret < 0) {
+	  cerr << "Error reading default realm:" << cpp_strerror(-ret) << std::endl;
+	  return ret;
+	}
+	cout << "default realm: " << default_id << std::endl;
+      }
+      break;
+    case OPT_REALM_REMOVE:
+      {
+	RGWRealm realm(realm_id, realm_name);
+	if (realm_name.empty() && realm_id.empty()) {
+	  cerr << "missing realm name or id" << std::endl;
+	  return -EINVAL;
+	}
+	int ret = realm.init(g_ceph_context, store, true);
+	if (ret < 0) {
+	  cerr << "realm.init failed: " << cpp_strerror(-ret) << std::endl;
+	  return -ret;
+	}
+      }
+      break;
+    case OPT_REALM_RENAME:
+      {	
+	RGWRealm realm(realm_id, realm_name);
+	if (realm_new_name.empty()) {
+	  cerr << "missing realm new name" << std::endl;
+	  return -EINVAL;
+	}
+	if (realm_name.empty() && realm_id.empty()) {
+	  cerr << "missing realm name or id" << std::endl;
+	  return -EINVAL;
+	}
+	int ret = realm.init(g_ceph_context, store);
+	if (ret < 0) {
+	  cerr << "realm.init failed: " << cpp_strerror(-ret) << std::endl;
+	  return -ret;
+	}
+	ret = realm.rename(realm_new_name);
+	if (ret < 0) {
+	  cerr << "realm.rename failed: " << cpp_strerror(-ret) << std::endl;
+	  return -ret;
+	}	
+      }
+      break;
+  case OPT_REALM_SET_DEFAULT:
+      {	
+	RGWRealm realm(realm_id, realm_name);
+	int ret = realm.init(g_ceph_context, store);
+	if (ret < 0) {
+	  cerr << "failed to init realm: " << cpp_strerror(-ret) << std::endl;
+	  return -ret;
+	}
+	ret = realm.set_as_default();
+	if (ret < 0) {
+	  cerr << "failed to set realm as default: " << cpp_strerror(-ret) << std::endl;
+	  return -ret;
+	}
+      }
+      break;
     case OPT_REGION_GET:
       {	
 	RGWRegion region;

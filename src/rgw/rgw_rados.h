@@ -1109,10 +1109,10 @@ public:
     DECODE_FINISH(bl);
   }
   
-  virtual string get_pool_name(CephContext *cct);
-  string get_default_oid();
-  string get_names_oid_prefix();
-  string get_info_oid_prefix();
+  virtual const string& get_pool_name(CephContext *cct);
+  const string& get_default_oid();
+  const string& get_names_oid_prefix();
+  const string& get_info_oid_prefix();
 
   void dump(Formatter *f) const;
   void decode_json(JSONObj *obj);

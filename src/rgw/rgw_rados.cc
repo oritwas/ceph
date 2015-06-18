@@ -588,30 +588,28 @@ int RGWSystemMetaObj::store_info(bool exclusive)
   return  rgw_put_system_obj(store, pool, oid, bl.c_str(), bl.length(), exclusive, NULL, 0, NULL);
 }
 
-string  RGWRealm::get_pool_name(CephContext *cct)
+const string& RGWRealm::get_pool_name(CephContext *cct)
 {
-  string pool_name = cct->_conf->rgw_realm_root_pool;
-  if (pool_name.empty()) {
-    pool_name = RGW_DEFAULT_REALM_ROOT_POOL;
+  if (cct->_conf->rgw_realm_root_pool.empty()) {
+    return RGW_DEFAULT_REALM_ROOT_POOL;
   }
-  return pool_name;
+  return cct->_conf->rgw_realm_root_pool;
 }
 
-string RGWRealm::get_default_oid()
+const string& RGWRealm::get_default_oid()
 {
-  string oid = cct->_conf->rgw_default_realm_info_oid;
-  if (oid.empty()) {
-    oid = default_realm_info_oid;
+  if (cct->_conf->rgw_realm_root_pool.empty()) {
+    return  default_realm_info_oid;
   }
-  return oid;
+  return cct->_conf->rgw_realm_root_pool;
 }
 
-string RGWRealm::get_names_oid_prefix()
+const string& RGWRealm::get_names_oid_prefix()
 {
   return realm_names_oid_prefix;
 }
 
-string RGWRealm::get_info_oid_prefix()
+const string& RGWRealm::get_info_oid_prefix()
 {
   return realm_info_oid_prefix;
 }
