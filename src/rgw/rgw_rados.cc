@@ -67,8 +67,8 @@ static string avail_pools = ".pools.avail";
 
 static string zone_info_oid_prefix = "zone_info.";
 static string region_info_oid_prefix = "region_info.";
-static string realm_info_oid_prefix = "realm_info.";
-
+static string realm_names_oid_prefix = "realms_names.";
+static string realm_info_oid_prefix = "realms.";
 static string default_region_info_oid = "default.region";
 static string region_map_oid = "region_map";
 static string log_lock_name = "rgw_log_lock";
@@ -307,95 +307,21 @@ int RGWRegion::equals(const string& other_region)
   return (name == other_region);
 }
 
-
-int RGWRealm::get_pool_name(CephContext *cct, string *pool_name)
-{
-  *pool_name = cct->_conf->rgw_realm_root_pool;
-  if (pool_name->empty()) {
-    *pool_name = RGW_DEFAULT_REALM_ROOT_POOL;
-  }
-  return 0;
-}
-
-int RGWRealm::read_default(RGWDefaultRealmInfo& default_info)
-{
-  string pool_name;
-
-  int ret = get_pool_name(cct, &pool_name);
-  if (ret < 0) {
-    return ret;
-  }
-
-  string oid = cct->_conf->rgw_default_realm_info_oid;
-  if (oid.empty()) {
-    oid = default_realm_info_oid;
-  }
-
-  rgw_bucket pool(pool_name.c_str());
-  bufferlist bl;
-  RGWObjectCtx obj_ctx(store);
-  ret = rgw_get_system_obj(store, obj_ctx, pool, oid, bl, NULL, NULL);
-  if (ret < 0)
-    return ret;
-
-  try {
-    bufferlist::iterator iter = bl.begin();
-    ::decode(default_info, iter);
-  } catch (buffer::error& err) {
-    derr << "error decoding data from " << pool << ":" << oid << dendl;
-    return -EIO;
-  }
-
-  id = default_info.realm_id;
-
-  return 0;
-}
-
-int RGWRealm::set_as_default()
-{
-  string pool_name;
-  int ret = get_pool_name(cct, &pool_name);
-  if (ret < 0)
-    return ret;
-
-  string oid = cct->_conf->rgw_default_realm_info_oid;
-  if (oid.empty()) {
-    oid = default_realm_info_oid;
-  }
-
-  rgw_bucket pool(pool_name.c_str());
-  bufferlist bl;
-
-  RGWDefaultRealmInfo default_info;
-  default_info.realm_id = id;
-
-  ::encode(default_info, bl);
-
-  ret = rgw_put_system_obj(store, pool, oid, bl.c_str(), bl.length(), false, NULL, 0, NULL);
-  if (ret < 0)
-    return ret;
-
-  return 0;
-}
-
-int RGWRealm::init(CephContext *_cct, RGWRados *_store, bool setup_realm)
+int RGWNamedObj::init(CephContext *_cct, RGWRados *_store, bool setup_obj)
 {
   cct = _cct;
   store = _store;
 
-  if (!setup_realm)
+  if (!setup_obj)
     return 0;
   
   if (id.empty()) {
     int r;
-    if (name.empty()) {      
-      RGWDefaultRealmInfo default_info;
-      r = read_default(default_info);
+    if (name.empty()) {
+      r = use_default();
       if (r < 0) {
-	lderr(cct) << "failed reading default region info: " << cpp_strerror(-r) << dendl;
 	return r;
       }
-      id = default_info.realm_id;
     } else {
       r = read_id(name, id);
       if (r < 0) {
@@ -408,185 +334,154 @@ int RGWRealm::init(CephContext *_cct, RGWRados *_store, bool setup_realm)
   return read_info(id);
 }
 
-
-int RGWRealm::read_id(const string& realm_name, string& realm_id)
+int RGWNamedObj::read_default(RGWDefaultNamedObjInfo& default_info)
 {
-  string pool_name;
-  int ret = get_pool_name(cct, &pool_name);
-  if (ret < 0)
-    return ret;
-
-  rgw_bucket pool(pool_name.c_str());
-  bufferlist bl;
+  string pool_name = get_pool_name(cct);
+  string oid =  get_default_oid();
   
-  string oid = realm_info_oid_prefix + realm_name;
-
+  rgw_bucket pool(pool_name.c_str());
+  bufferlist bl;
   RGWObjectCtx obj_ctx(store);
-  ret = rgw_get_system_obj(store, obj_ctx, pool, oid, bl, NULL, NULL);
-  if (ret < 0) {
-    return ret;
-  }
-
-  RGWRealmName rgw_realm_name;
-  try {
-    bufferlist::iterator iter = bl.begin();
-    ::decode(rgw_realm_name, iter);
-  } catch (buffer::error& err) {
-    ldout(cct, 0) << "ERROR: failed to decode realm from " << pool << ":" << oid << dendl;
-    return -EIO;
-  }
-  realm_id = rgw_realm_name.realm_id;
-  return 0;
-}
-
-int RGWRealm::read_info(const string& realm_name)
-{
-  string pool_name;
-  int ret = get_pool_name(cct, &pool_name);
+  int ret = rgw_get_system_obj(store, obj_ctx, pool, oid, bl, NULL, NULL);
   if (ret < 0)
     return ret;
 
-  rgw_bucket pool(pool_name.c_str());
-  bufferlist bl;
-
-  name = realm_name;
-
-  string oid = realm_info_oid_prefix + name;
-
-  RGWObjectCtx obj_ctx(store);
-  ret = rgw_get_system_obj(store, obj_ctx, pool, oid, bl, NULL, NULL);
-  if (ret < 0) {
-    lderr(cct) << "failed reading realm info from " << pool << ":" << oid << ": " << cpp_strerror(-ret) << dendl;
-    return ret;
-  }
-
   try {
     bufferlist::iterator iter = bl.begin();
-    ::decode(*this, iter);
+    ::decode(default_info, iter);
   } catch (buffer::error& err) {
-    ldout(cct, 0) << "ERROR: failed to decode realm from " << pool << ":" << oid << dendl;
+    derr << "error decoding data from " << pool << ":" << oid << dendl;
     return -EIO;
   }
 
   return 0;
 }
 
-int RGWRealm::create()
+int RGWNamedObj::read_default_id(string& default_id)
 {
-  int r;
+  RGWDefaultNamedObjInfo default_info;
   
-  /* check to see the name is not used */
-  r = read_id(name, id);
-  if (r == 0) {
-    ldout(cct, 0) << "ERROR: name already in use for realm id " << id << dendl;
-    return -EEXIST;
-  } else if ( r != -ENOENT) {
-    lderr(cct) << "failed reading realm id  " << id << ": " << cpp_strerror(-r) << dendl;
-    return r;
-  }
-
-  /* create unique id */
-  uuid_d new_uuid;
-  char uuid_str[37];
-  new_uuid.generate_random();
-  new_uuid.print(uuid_str);
-  id = uuid_str;
-  
-  r = store_info(true);
-  if (r < 0) {
-    ldout(cct, 0) << "ERROR:  storing info for " << id << ": " << r << dendl;
-    return r;
+  int ret = read_default(default_info);
+  if (ret < 0) {
+    return ret;
   }
   
-  return store_name(true);
+  default_id = default_info.default_id;
+  
+  return 0;
 }
 
-int RGWRealm::delete_realm()
+int RGWNamedObj::use_default()
 {
-  string pool_name;
-  int ret = get_pool_name(cct, &pool_name);
+  RGWDefaultNamedObjInfo default_info;
+  int ret = read_default(default_info);
   if (ret < 0)
     return ret;
+  
+  id = default_info.default_id;
+  
+  return 0;
+}
+
+int RGWNamedObj::set_as_default()
+{
+  string pool_name = get_pool_name(cct);
+  string oid  = get_default_oid();
+
   rgw_bucket pool(pool_name.c_str());
+  bufferlist bl;
 
-  lderr(cct) << "deleting realm name  " << name << " id " << id << dendl;    
+  RGWDefaultNamedObjInfo default_info;
+  default_info.default_id = id;
 
-  /* check to see if realm is the default */
-  RGWDefaultRealmInfo default_realm;
-  ret = read_default(default_realm);
+  ::encode(default_info, bl);
+
+  int ret = rgw_put_system_obj(store, pool, oid, bl.c_str(), bl.length(), false, NULL, 0, NULL);
+  if (ret < 0)
+    return ret;
+
+  return 0;
+}
+
+int RGWNamedObj::read_id(const string& obj_name, string& object_id)
+{
+  string pool_name = get_pool_name(cct);
+  rgw_bucket pool(pool_name.c_str());
+  bufferlist bl;
+  
+  string oid = get_names_oid_prefix() + obj_name;
+
+  RGWObjectCtx obj_ctx(store);
+  int ret = rgw_get_system_obj(store, obj_ctx, pool, oid, bl, NULL, NULL);
+  if (ret < 0) {
+    return ret;
+  }
+
+  RGWNameToId nameToId;
+  try {
+    bufferlist::iterator iter = bl.begin();
+    ::decode(nameToId, iter);
+  } catch (buffer::error& err) {
+    ldout(cct, 0) << "ERROR: failed to decode obj from " << pool << ":" << oid << dendl;
+    return -EIO;
+  }
+  object_id = nameToId.obj_id;
+  return 0;
+}
+
+int RGWNamedObj::delete_obj()
+{
+  string pool_name = get_pool_name(cct);
+  rgw_bucket pool(pool_name.c_str());
+  
+  /* check to see if obj is the default */
+  RGWDefaultNamedObjInfo default_info;
+  int ret = read_default(default_info);
   if (ret < 0 && ret != -ENOENT)
     return ret;
-  if (default_realm.realm_id == id) {
-    string oid = cct->_conf->rgw_default_realm_info_oid;
-    rgw_obj default_realm_obj(pool, oid);
-    ret = store->delete_system_obj(default_realm_obj);
+  if (default_info.default_id == id) {
+    string oid = get_default_oid();
+    rgw_obj default_named_obj(pool, oid);
+    ret = store->delete_system_obj(default_named_obj);
     if (ret < 0) {
-      lderr(cct) << "Error delete realm name  " << name << ": " << cpp_strerror(-ret) << dendl;    
+      lderr(cct) << "Error delete default obj name  " << name << ": " << cpp_strerror(-ret) << dendl;    
       return ret;
     }
   }
-
-  lderr(cct) << "deleting after default   " << name << " id " << id << dendl;    
-  string oid = realm_info_oid_prefix + name;
-  rgw_obj realm_name(pool, oid);
-  ret = store->delete_system_obj(realm_name);
+  string oid  = get_names_oid_prefix() + name;
+  rgw_obj object_name(pool, oid);
+  ret = store->delete_system_obj(object_name);
   if (ret < 0) {
-    lderr(cct) << "Error delete realm name  " << name << ": " << cpp_strerror(-ret) << dendl;    
+    lderr(cct) << "Error delete obj name  " << name << ": " << cpp_strerror(-ret) << dendl;    
     return ret;
   }
 
-  lderr(cct) << "deleting removed name  " << name << " id " << id << dendl;
-  
-  oid = realm_info_oid_prefix + id;
-  rgw_obj realm_id(pool, oid);
-  ret = store->delete_system_obj(realm_id);
+  oid  = get_info_oid_prefix() + id;  
+  rgw_obj object_id(pool, oid);
+  ret = store->delete_system_obj(object_id);
   if (ret < 0) {
-    lderr(cct) << "Error delete realm id " << id << ": " << cpp_strerror(-ret) << dendl;
+    lderr(cct) << "Error delete object id " << id << ": " << cpp_strerror(-ret) << dendl;
   }
   
   return ret;
 }
 
-int RGWRealm::store_name(bool exclusive)
+int RGWNamedObj::store_name(bool exclusive)
 {
-  string pool_name;
-  int ret = get_pool_name(cct, &pool_name);
-  if (ret < 0)
-    return ret;
+  string pool_name = get_pool_name(cct);
 
   rgw_bucket pool(pool_name.c_str());
+  string oid = get_names_oid_prefix() + name;  
 
-  string oid = realm_info_oid_prefix + name;
-
-  RGWRealmName realm_name;
-  realm_name.realm_id = id;
+  RGWNameToId nameToId;
+  nameToId.obj_id = id;
   
   bufferlist bl;
-  ::encode(realm_name, bl);
-  ret = rgw_put_system_obj(store, pool, oid, bl.c_str(), bl.length(), exclusive, NULL, 0, NULL);
-
-  return ret;
+  ::encode(nameToId, bl);
+  return  rgw_put_system_obj(store, pool, oid, bl.c_str(), bl.length(), exclusive, NULL, 0, NULL);
 }
 
-int RGWRealm::store_info(bool exclusive)
-{
-  string pool_name;
-  int ret = get_pool_name(cct, &pool_name);
-  if (ret < 0)
-    return ret;
-
-  rgw_bucket pool(pool_name.c_str());
-
-  string oid = realm_info_oid_prefix + name;
-
-  bufferlist bl;
-  ::encode(*this, bl);
-  ret = rgw_put_system_obj(store, pool, oid, bl.c_str(), bl.length(), exclusive, NULL, 0, NULL);
-
-  return ret;
-}
-
-int RGWRealm::rename(const string& new_name)
+int RGWNamedObj::rename(const string& new_name)
 {
   string new_id;
   int ret = read_id(new_name, new_id);
@@ -601,7 +496,7 @@ int RGWRealm::rename(const string& new_name)
   name = new_name;
   ret = store_info(true);
   if (ret < 0) {
-    lderr(cct) << "Error storing new realm info " << new_name << ": " << cpp_strerror(-ret) << dendl;    
+    lderr(cct) << "Error storing new obj info " << new_name << ": " << cpp_strerror(-ret) << dendl;    
     return ret;
   }
   ret = store_name(true);
@@ -610,20 +505,115 @@ int RGWRealm::rename(const string& new_name)
     return ret;
   }
   /* delete old name */
-  string pool_name;
-  ret = get_pool_name(cct, &pool_name);
-  if (ret < 0)
-    return ret;
+  string pool_name = get_pool_name(cct);
   rgw_bucket pool(pool_name.c_str());
-  string oid = realm_info_oid_prefix + old_name;
-  rgw_obj realm_name(pool, oid);
-  ret = store->delete_system_obj(realm_name);
+  string oid = get_names_oid_prefix() + old_name;
+  rgw_obj old_name_obj(pool, oid);
+  ret = store->delete_system_obj(old_name_obj);
   if (ret < 0) {
-    lderr(cct) << "Error delete old realm name  " << old_name << ": " << cpp_strerror(-ret) << dendl;    
+    lderr(cct) << "Error delete old obj name  " << old_name << ": " << cpp_strerror(-ret) << dendl;    
     return ret;
   }
 
+  return ret;
+}
+
+int RGWNamedObj::read_info(const string& obj_id)
+{
+  string pool_name = get_pool_name(cct);
+
+  rgw_bucket pool(pool_name.c_str());
+  bufferlist bl;
+
+  string oid= get_info_oid_prefix() + obj_id;
+
+  RGWObjectCtx obj_ctx(store);
+  int ret = rgw_get_system_obj(store, obj_ctx, pool, oid, bl, NULL, NULL);
+  if (ret < 0) {
+    lderr(cct) << "failed reading obj info from " << pool << ":" << oid << ": " << cpp_strerror(-ret) << dendl;
+    return ret;
+  }
+
+  try {
+    bufferlist::iterator iter = bl.begin();
+    ::decode(*this, iter);
+  } catch (buffer::error& err) {
+    ldout(cct, 0) << "ERROR: failed to decode obj from " << pool << ":" << oid << dendl;
+    return -EIO;
+  }
+
   return 0;
+}
+
+int RGWNamedObj::create()
+{
+  int ret;
+  
+  /* check to see the name is not used */
+  ret = read_id(name, id);
+  if (ret == 0) {
+    ldout(cct, 0) << "ERROR: name already in use for obj id " << id << dendl;
+    return -EEXIST;
+  } else if ( ret != -ENOENT) {
+    lderr(cct) << "failed reading obj id  " << id << ": " << cpp_strerror(-ret) << dendl;
+    return ret;
+  }
+
+  /* create unique id */
+  uuid_d new_uuid;
+  char uuid_str[37];
+  new_uuid.generate_random();
+  new_uuid.print(uuid_str);
+  id = uuid_str;
+  
+  ret = store_info(true);
+  if (ret < 0) {
+    ldout(cct, 0) << "ERROR:  storing info for " << id << ": " << cpp_strerror(-ret) << dendl;
+    return ret;
+  }
+  
+  return store_name(true);
+}
+
+int RGWNamedObj::store_info(bool exclusive)
+{
+  string pool_name = get_pool_name(cct);
+
+  rgw_bucket pool(pool_name.c_str());
+
+  string oid = get_info_oid_prefix() + id;
+
+  bufferlist bl;
+  ::encode(*this, bl);
+  return  rgw_put_system_obj(store, pool, oid, bl.c_str(), bl.length(), exclusive, NULL, 0, NULL);
+}
+
+string  RGWRealm::get_pool_name(CephContext *cct)
+{
+  string pool_name = cct->_conf->rgw_realm_root_pool;
+  if (pool_name.empty()) {
+    pool_name = RGW_DEFAULT_REALM_ROOT_POOL;
+  }
+  return pool_name;
+}
+
+string RGWRealm::get_default_oid()
+{
+  string oid = cct->_conf->rgw_default_realm_info_oid;
+  if (oid.empty()) {
+    oid = default_realm_info_oid;
+  }
+  return oid;
+}
+
+string RGWRealm::get_names_oid_prefix()
+{
+  return realm_names_oid_prefix;
+}
+
+string RGWRealm::get_info_oid_prefix()
+{
+  return realm_info_oid_prefix;
 }
 
 void RGWZoneParams::init_default(RGWRados *store)

@@ -1436,7 +1436,7 @@ int main(int argc, char **argv)
 	  cerr << "realm.init failed: " << cpp_strerror(-ret) << std::endl;
 	  return -ret;
 	}
-	ret = realm.delete_realm();
+	ret = realm.delete_obj();
 	if (ret < 0) {
 	  cerr << "ERROR: couldn't : " << cpp_strerror(-ret) << std::endl;
 	  return ret;
@@ -1464,8 +1464,8 @@ int main(int argc, char **argv)
     case OPT_REALM_GET_DEFAULT:
       {
 	RGWRealm realm(g_ceph_context, store);
-	RGWDefaultRealmInfo default_realm;
-	int ret = realm.read_default(default_realm);
+	string default_id;
+	int ret = realm.read_default_id(default_id);
 	if (ret == -ENOENT) {
 	  cout << "No default realm is set" << std::endl;
 	  return ret;
@@ -1473,7 +1473,7 @@ int main(int argc, char **argv)
 	  cerr << "Error reading default realm:" << cpp_strerror(-ret) << std::endl;
 	  return ret;
 	}
-	cout << "default realm: " << default_realm.realm_id << std::endl;
+	cout << "default realm: " << default_id << std::endl;
       }
       break;
     case OPT_REALM_REMOVE:

@@ -983,67 +983,72 @@ struct RGWRegionMap {
 };
 WRITE_CLASS_ENCODER(RGWRegionMap)
 
-struct RGWDefaultRealmInfo {
-  string realm_id;
+struct RGWDefaultNamedObjInfo {
+  string default_id;
 
   void encode(bufferlist& bl) const {
     ENCODE_START(1, 1, bl);
-    ::encode(realm_id, bl);
+    ::encode(default_id, bl);
     ENCODE_FINISH(bl);
   }
   
   void decode(bufferlist::iterator& bl) {
     DECODE_START(1, bl);
-    ::decode(realm_id, bl);
+    ::decode(default_id, bl);
     DECODE_FINISH(bl);
   }
 
   void dump(Formatter *f) const;
   void decode_json(JSONObj *obj);
 };
-WRITE_CLASS_ENCODER(RGWDefaultRealmInfo)
-  
-struct RGWRealmName {
-  string realm_id;
+WRITE_CLASS_ENCODER(RGWDefaultNamedObjInfo)
+
+struct RGWNameToId {
+  string obj_id;
 
   void encode(bufferlist& bl) const {
     ENCODE_START(1, 1, bl);
-    ::encode(realm_id, bl);
+    ::encode(obj_id, bl);
     ENCODE_FINISH(bl);
   }
 
   void decode(bufferlist::iterator& bl) {
     DECODE_START(1, bl);
-    ::decode(realm_id, bl);  
+    ::decode(obj_id, bl);  
     DECODE_FINISH(bl);
   }
 
   void dump(Formatter *f) const;
   void decode_json(JSONObj *obj);
 };
-WRITE_CLASS_ENCODER(RGWRealmName)
+WRITE_CLASS_ENCODER(RGWNameToId)
 
-struct RGWRealm {
+class RGWNamedObj {
+protected:
   string id;
   string name;
 
-  string master_zonegroup;
-  map<string, RGWRegion> zonegroups;
-
   CephContext *cct;
   RGWRados *store;
+  
+  int store_name(bool exclusive);
+  int store_info(bool exclusive);
+  int read_info(const string& obj_id);
+  int read_id(const string& obj_name, string& obj_id);
+  int read_default(RGWDefaultNamedObjInfo& default_info);
+  /* read and use default id */
+  int use_default();
 
-  RGWRealm() : cct(NULL), store(NULL) {}
-  RGWRealm(const string& _id, const string& _name) : id(_id), name(_name) {}  
-  RGWRealm(CephContext *_cct, RGWRados *_store): cct(_cct), store(_store){}
-  RGWRealm(const string& _name, CephContext *_cct, RGWRados *_store): name(_name), cct(_cct), store(_store){}
-
+public:  
+  RGWNamedObj(const string& _id, const string& _name) : id(_id), name(_name) {}  
+  RGWNamedObj(CephContext *_cct, RGWRados *_store): cct(_cct), store(_store){}
+  RGWNamedObj(const string& _name, CephContext *_cct, RGWRados *_store): name(_name), cct(_cct), store(_store){}
+  virtual ~RGWNamedObj() {}
+  
   void encode(bufferlist& bl) const {
     ENCODE_START(1, 1, bl);
     ::encode(id, bl);
     ::encode(name, bl);
-    ::encode(master_zonegroup, bl);
-    ::encode(zonegroups, bl);
     ENCODE_FINISH(bl);
   }
 
@@ -1051,27 +1056,63 @@ struct RGWRealm {
     DECODE_START(1, bl);
     ::decode(id, bl);
     ::decode(name, bl);
-    ::decode(master_zonegroup, bl);
-    ::decode(zonegroups, bl);
     DECODE_FINISH(bl);
   }
 
   int init(CephContext *_cct, RGWRados *_store, bool setup_realm = true);
-  int store_name(bool exclusive);
-  int store_info(bool exclusive);
-  int read_info(const string& realm_id);
-  int read_id(const string& realm_name, string& realm_id);
-  int read_default(RGWDefaultRealmInfo& default_realm);
+  int read_default_id(string& default_id);
   int set_as_default();
+  int delete_default();
   int create();
-  int delete_realm();
+  int delete_obj();
   int rename(const string& new_name);
-  static int get_pool_name(CephContext *cct, string *pool_name);
+
+  virtual string get_pool_name(CephContext *cct) = 0;
+    
+  virtual string get_default_oid() = 0;
+  virtual string get_names_oid_prefix() = 0;
+  virtual string get_info_oid_prefix() = 0;
+  
+  void dump(Formatter *f) const;
+  void decode_json(JSONObj *obj);
+};
+WRITE_CLASS_ENCODER(RGWNamedObj)
+
+class RGWRealm : public RGWNamedObj
+{
+  string master_zonegroup;
+  map<string, RGWRegion> zonegroups;
+
+public:
+  RGWRealm(const string& _id, const string& _name) : RGWNamedObj(_id, _name) {}  
+  RGWRealm(CephContext *_cct, RGWRados *_store): RGWNamedObj(_cct, _store) {}
+  RGWRealm(const string& _name, CephContext *_cct, RGWRados *_store): RGWNamedObj(_name, _cct, _store){}
+
+  void encode(bufferlist& bl) const {
+    ENCODE_START(1, 1, bl);
+    RGWNamedObj::encode(bl);
+    ::encode(master_zonegroup, bl);
+    ::encode(zonegroups, bl);
+    ENCODE_FINISH(bl);
+  }
+
+  void decode(bufferlist::iterator& bl) {
+    DECODE_START(1, bl);
+    RGWNamedObj::decode(bl);
+    ::decode(master_zonegroup, bl);
+    ::decode(zonegroups, bl);
+    DECODE_FINISH(bl);
+  }
+  
+  virtual string get_pool_name(CephContext *cct);
+  string get_default_oid();
+  string get_names_oid_prefix();
+  string get_info_oid_prefix();
 
   void dump(Formatter *f) const;
   void decode_json(JSONObj *obj);
 };
-WRITE_CLASS_ENCODER(RGWRealm )
+WRITE_CLASS_ENCODER(RGWRealm)
 
 class RGWDataChangesLog;
 class RGWReplicaLogger;
