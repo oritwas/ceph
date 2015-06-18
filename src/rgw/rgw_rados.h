@@ -1094,6 +1094,7 @@ class RGWRealm : public RGWSystemMetaObj
   map<string, RGWRegion> zonegroups;
 
 public:
+  RGWRealm() {}
   RGWRealm(const string& _id, const string& _name) : RGWSystemMetaObj(_id, _name) {}  
   RGWRealm(CephContext *_cct, RGWRados *_store): RGWSystemMetaObj(_cct, _store) {}
   RGWRealm(const string& _name, CephContext *_cct, RGWRados *_store): RGWSystemMetaObj(_name, _cct, _store){}
