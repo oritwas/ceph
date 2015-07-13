@@ -15,7 +15,7 @@ class RGWRESTConn
   CephContext *cct;
   map<int, string> endpoints;
   RGWAccessKey key;
-  string region;
+  string zone_group;
   atomic_t counter;
 public:
 
