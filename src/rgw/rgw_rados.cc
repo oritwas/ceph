@@ -1819,6 +1819,11 @@ int RGWRados::init_complete()
 {
   int ret;
 
+  ret = realm.init(cct, this);
+  if (ret < 0 && ret != ENOENT) {
+    return ret;
+  }
+
   ret = region.init(cct, this);
   if (ret < 0)
     return ret;
