@@ -214,6 +214,9 @@ protected:
       perfcounter->inc(l_rgw_qlen, -1);
       return req;
     }
+    void _process(RGWRequest *req, ThreadPool::TPHandle &tp) {
+      assert(0);
+    }
     void _process(RGWRequest *req) {
       perfcounter->inc(l_rgw_qactive);
       process->handle_request(req);
