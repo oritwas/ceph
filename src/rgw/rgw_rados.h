@@ -842,6 +842,7 @@ struct RGWZoneParams {
   map<string, RGWZonePlacementInfo> placement_pools;
 
   RGWZoneParams() : is_master(false) {}
+  RGWZoneParams(const std::string& _name):name(_name) {}
 
   static int get_pool_name(CephContext *cct, string *pool_name);
   void init_name(CephContext *cct, RGWZoneGroup& zonegroup);
@@ -1017,7 +1018,7 @@ struct RGWZoneGroup {
   bool old_region;
 
   RGWZoneGroup() : is_master(false), cct(NULL), store(NULL), old_region(false) {}
-
+  RGWZoneGroup(const std::string &_name):name(_name) {}
   void encode(bufferlist& bl) const {
     ENCODE_START(2, 1, bl);
     ::encode(name, bl);

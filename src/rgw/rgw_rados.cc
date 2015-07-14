@@ -212,37 +212,40 @@ int RGWZoneGroup::init(CephContext *_cct, RGWRados *_store, bool setup_zonegroup
   if (!setup_zonegroup)
     return 0;
 
-  string zonegroup_name = cct->_conf->rgw_zonegroup;;
-  if (zonegroup_name.empty() && !cct->_conf->rgw_region.empty()) {
-    old_region = true;
-    zonegroup_name = cct->_conf->rgw_region;
-  }
-
-  if (zonegroup_name.empty()) {
-    RGWDefaultZoneGroupInfo default_info;
-    int r = read_default(default_info);
-    if (r == -ENOENT) {
-      r = create_default();
-      if (r == -EEXIST) { /* we may have raced with another zonegroup creation,
-                             make sure we can read the zonegroup info and continue
-                             as usual to make sure zonegroup creation is complete */
-        ldout(cct, 0) << "create_default() returned -EEXIST, we raced with another zonegroup creation" << dendl;
-        r = read_info(name);
-      }
-      if (r < 0)
-        return r;
-      r = set_as_default(); /* set this as default even if we weren't the creators */
-      if (r < 0)
-        return r;
-      /*Re attempt to read zonegroup info from newly created default zonegroup */
-      r = read_default(default_info);
-      if (r < 0)
-	return r;
-    } else if (r < 0) {
-      lderr(cct) << "failed reading default zonegroup info: " << cpp_strerror(-r) << dendl;
-      return r;
+  string zonegroup_name = name;
+  if (name.empty()) {
+    zonegroup_name = cct->_conf->rgw_zonegroup;
+    if (zonegroup_name.empty() && !cct->_conf->rgw_region.empty()) {
+      old_region = true;
+      zonegroup_name = cct->_conf->rgw_region;
     }
-    zonegroup_name = default_info.default_zonegroup;
+
+    if (zonegroup_name.empty()) {
+      RGWDefaultZoneGroupInfo default_info;
+      int r = read_default(default_info);
+      if (r == -ENOENT) {
+	r = create_default();
+	if (r == -EEXIST) { /* we may have raced with another zonegroup creation,
+			       make sure we can read the zonegroup info and continue
+			       as usual to make sure zonegroup creation is complete */
+	  ldout(cct, 0) << "create_default() returned -EEXIST, we raced with another zonegroup creation" << dendl;
+	  r = read_info(name);
+      }
+	if (r < 0)
+	  return r;
+	r = set_as_default(); /* set this as default even if we weren't the creators */
+	if (r < 0)
+	  return r;
+	/*Re attempt to read zonegroup info from newly created default zonegroup */
+	r = read_default(default_info);
+	if (r < 0)
+	  return r;
+      } else if (r < 0) {
+	lderr(cct) << "failed reading default zonegroup info: " << cpp_strerror(-r) << dendl;
+	return r;
+      }
+      zonegroup_name = default_info.default_zonegroup;
+    }
   }
 
   return read_info(zonegroup_name);
