@@ -88,6 +88,7 @@ void _usage()
   cerr << "  zonegroup default          set default zone group\n";
   cerr << "  zonegroup-map get          show zonegroup-map\n";
   cerr << "  zonegroup-map set          set zonegroup-map (requires infile)\n";
+  cerr << "  zone create                create a new zone\n";  
   cerr << "  zone get                   show zone cluster params\n";
   cerr << "  zone set                   set zone cluster params (requires infile)\n";
   cerr << "  zone list                  list all zones set on this cluster\n";
@@ -157,7 +158,8 @@ void _usage()
   cerr << "   --realm=<realm>     realm name\n";
   cerr << "   --realm-id=<realm id>     realm id\n";
   cerr << "   --realm-new-name=<realm new name> realm new name\n";
-  cerr << "   --zonegroup=<zone>        zonegroup in which radosgw is running\n";
+  cerr << "   --zonegroup=<zonegroup>   zonegroup name\n";
+  cerr << "   --zone=<zone>             zone name\n";
   cerr << "   --rgw-zone=<zone>         zone in which radosgw is running\n";
   cerr << "   --fix                     besides checking bucket index, will also fix it\n";
   cerr << "   --check-objects           bucket check: rebuilds bucket index according to\n";
@@ -258,6 +260,7 @@ enum {
   OPT_ZONEGROUPMAP_GET,
   OPT_ZONEGROUPMAP_SET,
   OPT_ZONEGROUPMAP_UPDATE,
+  OPT_ZONE_CREATE,
   OPT_ZONE_GET,
   OPT_ZONE_SET,
   OPT_ZONE_LIST,
@@ -493,6 +496,8 @@ static int get_cmd(const char *cmd, const char *prev_cmd, bool *need_more)
     if (strcmp(cmd, "update") == 0)
       return OPT_ZONEGROUPMAP_UPDATE;
   } else if (strcmp(prev_cmd, "zone") == 0) {
+    if (strcmp(cmd, "create") == 0)
+      return OPT_ZONE_CREATE;
     if (strcmp(cmd, "get") == 0)
       return OPT_ZONE_GET;
     if (strcmp(cmd, "set") == 0)
@@ -1137,6 +1142,8 @@ int main(int argc, char **argv)
   std::string key_type_str;
   std::string period_id, url, parent_period;
   std::string realm_name, realm_id, realm_new_name;
+  std::string zone_name;
+  std::string zonegroup_name;
   epoch_t period_epoch = 0;
   int key_type = KEY_TYPE_UNDEFINED;
   rgw_bucket bucket;
@@ -1397,6 +1404,10 @@ int main(int argc, char **argv)
       realm_id = val;
     } else if (ceph_argparse_witharg(args, i, &val, "--realm-new-name", (char*)NULL)) {
       realm_new_name = val;
+    } else if (ceph_argparse_witharg(args, i, &val, "--zonegroup-name", (char*)NULL)) {
+      zonegroup_name = val;
+    } else if (ceph_argparse_witharg(args, i, &val, "--zone-name", (char*)NULL)) {
+      zonegroup_name = val;
     } else if (strncmp(*i, "-", 1) == 0) {
       cerr << "ERROR: invalid flag " << *i << std::endl;
       return EINVAL;
@@ -1462,9 +1473,9 @@ int main(int argc, char **argv)
   bool raw_storage_op = (opt_cmd == OPT_ZONEGROUP_GET || opt_cmd == OPT_ZONEGROUP_LIST ||
                          opt_cmd == OPT_ZONEGROUP_SET || opt_cmd == OPT_ZONEGROUP_DEFAULT ||
                          opt_cmd == OPT_ZONEGROUPMAP_GET || opt_cmd == OPT_ZONEGROUPMAP_SET ||
-                         opt_cmd == OPT_ZONEGROUPMAP_UPDATE ||
+                         opt_cmd == OPT_ZONEGROUPMAP_UPDATE || 
                          opt_cmd == OPT_ZONE_GET || opt_cmd == OPT_ZONE_SET ||
-                         opt_cmd == OPT_ZONE_LIST || opt_cmd == OPT_REALM_CREATE ||
+                         opt_cmd == OPT_ZONE_LIST || opt_cmd == OPT_ZONE_CREATE || opt_cmd == OPT_REALM_CREATE ||
 			 opt_cmd == OPT_PERIOD_PREPARE || opt_cmd == OPT_PERIOD_ACTIVATE ||
 			 opt_cmd == OPT_PERIOD_DELETE || opt_cmd == OPT_PERIOD_GET ||
 			 opt_cmd == OPT_PERIOD_PULL || opt_cmd == OPT_PERIOD_PUSH ||
@@ -1890,6 +1901,21 @@ int main(int argc, char **argv)
 
 	encode_json("zonegroup-map", zonegroupmap, formatter);
 	formatter->flush(cout);
+      }
+      break;
+    case OPT_ZONE_CREATE:
+      {
+	RGWZoneGroup zonegroup(zonegroup_name);      
+	int ret = zonegroup.init(g_ceph_context, store);
+	if (ret < 0) {
+	  cerr << "WARNING: failed to initialize zonegroup " << zonegroup_name << std::endl;
+	}
+	RGWZoneParams zone(zone_name);
+	ret = zone.init(g_ceph_context, store, zonegroup);
+	if (ret < 0) {
+	  cerr << "unable to initialize zone: " << cpp_strerror(-ret) << std::endl;
+	  return -ret;
+	}
       }
       break;
     case OPT_ZONE_GET:
