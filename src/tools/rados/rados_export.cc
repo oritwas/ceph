@@ -45,6 +45,9 @@ public:
   {
   }
 private:
+  void _process(std::string *s, ThreadPool::TPHandle &tp) {
+    assert(0);
+  }
   void _process(std::string *s) {
     IoCtx &io_ctx(m_io_ctx_dist->get_ioctx());
     int flags = 0;
@@ -142,6 +145,9 @@ public:
   {
   }
 private:
+  void _process(std::string *s, ThreadPool::TPHandle &tp) {
+    assert(0);
+  }
   void _process(std::string *s) {
     IoCtx &io_ctx(m_io_ctx_dist->get_ioctx());
     auto_ptr <BackedUpObject> lobj;

@@ -96,6 +96,9 @@ class PassAlong : public ThreadPool::WorkQueue<unsigned> {
   void _process(unsigned *item) {
     next->queue(item);
   }
+  void _process(unsigned *item, ThreadPool::TPHandle &tp) {
+    assert(0);
+  }
   void _clear() { q.clear(); }
   bool _empty() { return q.empty(); }
 public:

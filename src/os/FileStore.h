@@ -357,6 +357,9 @@ private:
     void _process(OpSequencer *osr, ThreadPool::TPHandle &handle) {
       store->_do_op(osr, handle);
     }
+    void _process(OpSequencer *osr) {
+      assert(0);
+    }
     void _process_finish(OpSequencer *osr) {
       store->_finish_op(osr);
     }
@@ -564,6 +567,7 @@ public:
   void do_force_sync();
   void start_sync(Context *onsafe);
   void sync();
+  using JournalingObjectStore::sync;
   void _flush_op_queue();
   void flush();
   void sync_and_flush();

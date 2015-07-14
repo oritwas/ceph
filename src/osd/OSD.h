@@ -1734,6 +1734,10 @@ private:
 	(*i)->put("PeeringWQ");
       }
     }
+    void _process(
+      const list<PG *> &pgs) {
+      assert(0);
+    }
     void _process_finish(const list<PG *> &pgs) {
       for (list<PG*>::const_iterator i = pgs.begin();
 	   i != pgs.end();
@@ -2111,6 +2115,9 @@ protected:
       osd->osd_lock.Unlock();
       delete c;
     }
+    void _process(Command *c, ThreadPool::TPHandle &tp) {
+      assert(0);
+    }
     void _clear() {
       while (!osd->command_queue.empty()) {
 	Command *c = osd->command_queue.front();
@@ -2165,6 +2172,9 @@ protected:
     void _process(PG *pg, ThreadPool::TPHandle &handle) {
       osd->do_recovery(pg, handle);
       pg->put("RecoveryWQ");
+    }
+    void _process(PG *pg) {
+      assert(0);
     }
     void _clear() {
       while (!osd->recovery_queue.empty()) {
@@ -2221,6 +2231,9 @@ protected:
       return item;
     }
     void _process(pair<PGRef, DeletingStateRef>, ThreadPool::TPHandle &);
+    void _process(pair<PGRef, DeletingStateRef>) {
+      assert(0);
+    }   
     void _clear() {
       remove_queue.clear();
     }

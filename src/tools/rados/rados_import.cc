@@ -42,6 +42,9 @@ public:
   {
   }
 private:
+  void _process(std::string *s, ThreadPool::TPHandle &tp) {
+    assert(0);
+  }
   void _process(std::string *s) {
     IoCtx &io_ctx(m_io_ctx_dist->get_ioctx());
     const std::string &local_name(*s);
@@ -165,6 +168,9 @@ public:
   {
   }
 private:
+  void _process(std::string *s, ThreadPool::TPHandle &tp) {
+    assert(0);
+  }
   void _process(std::string *s) {
     IoCtx &io_ctx(m_io_ctx_dist->get_ioctx());
     const std::string &rados_name(*s);

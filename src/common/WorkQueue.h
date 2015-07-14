@@ -417,6 +417,10 @@ public:
     _queue.pop_front();
     return c;
   }
+  void _process(GenContext<ThreadPool::TPHandle&> *c) {
+    assert(0);
+  }
+
   void _process(GenContext<ThreadPool::TPHandle&> *c, ThreadPool::TPHandle &tp) {
     c->complete(tp);
   }
@@ -461,6 +465,10 @@ protected:
   virtual void _process(std::pair<Context *, int> item) {
     item.first->complete(item.second);
   }
+  virtual void _process(std::pair<Context *, int> item, ThreadPool::TPHandle &tp) {
+    assert(0);
+  }
+
 private:
   list<std::pair<Context *, int> > _queue;
 };

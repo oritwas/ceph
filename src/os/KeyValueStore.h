@@ -450,6 +450,9 @@ class KeyValueStore : public ObjectStore,
       store->op_queue.pop_front();
       return osr;
     }
+    void _process(OpSequencer *osr) {
+      assert(0);
+    }
     void _process(OpSequencer *osr, ThreadPool::TPHandle &handle) {
       store->_do_op(osr, handle);
     }
@@ -581,6 +584,7 @@ class KeyValueStore : public ObjectStore,
 
   void start_sync() {}
   void sync() {}
+  using ObjectStore::sync;
   void flush() {}
   void sync_and_flush() {}
 

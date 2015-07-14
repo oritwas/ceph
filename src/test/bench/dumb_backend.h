@@ -92,6 +92,10 @@ class DumbBackend : public Backend {
 	item->on_applied,
 	item->on_commit);
     }
+    void _process(write_item *item, ThreadPool::TPHandle &tp) {
+      assert(0);
+    }
+
     void _clear() {
       return item_queue.clear();
     }

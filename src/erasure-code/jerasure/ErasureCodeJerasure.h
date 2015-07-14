@@ -52,7 +52,8 @@ public:
   virtual ~ErasureCodeJerasure() {}
   
   virtual int parse(ErasureCodeProfile &profile, ostream *ss);
-
+  using ErasureCode::parse;
+  
   virtual int create_ruleset(const string &name,
 			     CrushWrapper &crush,
 			     ostream *ss) const;
@@ -114,6 +115,7 @@ public:
                                int blocksize);
   virtual unsigned get_alignment() const;
   virtual int parse(ErasureCodeProfile &profile, ostream *ss);
+  using ErasureCode::parse;
   virtual void prepare();
 };
 
@@ -142,6 +144,7 @@ public:
                                int blocksize);
   virtual unsigned get_alignment() const;
   virtual int parse(ErasureCodeProfile &profile, ostream *ss);
+  using ErasureCode::parse;
   virtual void prepare();
 };
 
@@ -178,6 +181,7 @@ public:
                                int blocksize);
   virtual unsigned get_alignment() const;
   virtual int parse(ErasureCodeProfile &profile, ostream *ss);
+  using ErasureCode::parse;
   void prepare_schedule(int *matrix);
 };
 
@@ -231,6 +235,7 @@ public:
   virtual int revert_to_default(ErasureCodeProfile &profile,
 				ostream *ss);
   virtual int parse(ErasureCodeProfile &profile, ostream *ss);
+  using ErasureCode::parse;
   virtual void prepare();
 };
 
@@ -256,6 +261,7 @@ public:
   }
 
   virtual int parse(ErasureCodeProfile &profile, ostream *ss);
+  using ErasureCode::parse;  
   virtual void prepare();
 };
 
