@@ -1431,6 +1431,7 @@ public:
     zone_name = name;
   }
 
+  RGWRealm realm;
   RGWRegion region;
   RGWZoneParams zone; /* internal zone params, e.g., rados pools */
   RGWZone zone_public_config; /* external zone params, e.g., entrypoints, log flags, etc. */
