@@ -97,6 +97,7 @@ void _usage()
   cout << "  zonegroups list            list all zone groups set on this cluster\n";
   cout << "  zonegroup-map get          show zonegroup-map\n";
   cout << "  zonegroup-map set          set zonegroup-map (requires infile)\n";
+  cout << "  zone create                create a new zone\n";
   cout << "  zone get                   show zone cluster params\n";
   cout << "  zone set                   set zone cluster params (requires infile)\n";
   cout << "  zone list                  list all zones set on this cluster\n";
@@ -168,7 +169,7 @@ void _usage()
   cout << "   --realm-id=<realm id>     realm id\n";
   cout << "   --realm-new-name=<realm new name>     realm new name\n";
   cout << "   --zonegroup=<zone>        zonegroup in which radosgw is running\n";
-  cout << "   --rgw-zone=<zone>         zone in which radosgw is running\n";
+  cout << "   --zone=<zone>         zone in which radosgw is running\n";
   cout << "   --fix                     besides checking bucket index, will also fix it\n";
   cout << "   --check-objects           bucket check: rebuilds bucket index according to\n";
   cout << "                             actual objects state\n";
@@ -1934,12 +1935,7 @@ int main(int argc, char **argv)
       break;
     case OPT_ZONEGROUP_GET:
       {
-	if (zonegroup_id.empty() && zonegroup_name.empty()) {
-	  cerr << "no zonegroup name or id provided" << std::endl;
-	  return -EINVAL;
-	}
-
-	RGWZoneGroup zonegroup(zonegroup_id, zonegroup_name);
+	RGWZoneGroup zonegroup;
 	int ret = zonegroup.init(g_ceph_context, store);
 	if (ret < 0) {
 	  cerr << "failed to init zonegroup: " << cpp_strerror(-ret) << std::endl;
@@ -1981,11 +1977,7 @@ int main(int argc, char **argv)
       break;
     case OPT_ZONEGROUP_SET:
       {
-	if (zonegroup_id.empty() && zonegroup_name.empty()) {
-	  cerr << "no zonegroup name or id provided" << std::endl;
-	  return -EINVAL;
-	}
-	RGWZoneGroup zonegroup(zonegroup_id, zonegroup_name);
+	RGWZoneGroup zonegroup;
 	int ret = zonegroup.init(g_ceph_context, store, false);
 	if (ret < 0) {
 	  cerr << "failed to init zonegroup: " << cpp_strerror(-ret) << std::endl;
