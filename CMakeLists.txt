@@ -240,7 +240,9 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 set(OperatingSystem "Mac OS X")  
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
+include(CTest)
 add_subdirectory(src)
 
 # man pages must be preprocessed, not supported yet
 #add_subdirectory(man)
+

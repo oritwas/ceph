@@ -545,6 +545,7 @@ endif(${WITH_MDS})
 add_subdirectory(erasure-code)
 
 # Support/Tools
+enable_testing()
 add_subdirectory(gmock)
 add_subdirectory(test)
 set(cephfs_srcs cephfs.cc)
