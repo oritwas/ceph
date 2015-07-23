@@ -711,6 +711,19 @@ if(${WITH_RBD})
     ${BLKID_LIBRARIES} ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS})
   install(TARGETS rbd DESTINATION bin)
   install(PROGRAMS ${CMAKE_SOURCE_DIR}/src/ceph-rbdnamer DESTINATION bin)
+  set(librbd_replay_srcs
+    rbd_replay/rbd-replay.cc
+    rbd_replay/actions.cc
+    rbd_replay/Deser.cc
+    rbd_replay/ImageNameMap.cc
+    rbd_replay/ios.cc
+    rbd_replay/PendingIO.cc
+    rbd_replay/rbd_loc.cc
+    rbd_replay/Replayer.cc
+    rbd_replay/Ser.cc)
+  add_library(librbd_replay ${librbd_replay_srcs})
+  target_link_libraries(librbd_replay librados global common cls_lock_client cls_rbd_client
+    ${CMAKE_DL_LIBS})
 endif(${WITH_RBD})
 
 # RadosGW

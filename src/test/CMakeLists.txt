@@ -377,6 +377,17 @@ set_target_properties(unittest_addrs
   PROPERTIES COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
 add_test(unittest_addrs unittest_addrs)
 
+#unittest_blkdev
+add_executable(unittest_blkdev
+  common/test_blkdev.cc
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_blkdev global
+  ${BLKID_LIBRARIES} ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_blkdev
+  PROPERTIES COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
+add_test(unittest_blkdev unittest_blkdev)
+
 # unittest_bloom_filter
 set(unittest_bloom_filter_srcs
   common/test_bloom_filter.cc
@@ -401,6 +412,17 @@ target_link_libraries(unittest_histogram global
 set_target_properties(unittest_histogram
   PROPERTIES COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
 add_test(unittest_histogram unittest_histogram)
+
+# unittest_prioritized_queue
+add_executable(unittest_prioritized_queue
+  common/test_prioritized_queue.cc
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_prioritized_queue global
+  ${BLKID_LIBRARIES} ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_prioritized_queue
+  PROPERTIES COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
+add_test(unittest_prioritized_queue unittest_prioritized_queue)
 
 # unittest_str_map
 set(unittest_str_map_srcs
@@ -429,6 +451,17 @@ target_link_libraries(unittest_sharedptr_registry global
 set_target_properties(unittest_sharedptr_registry
   PROPERTIES COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
 add_test(unittest_sharedptr_registry unittest_sharedptr_registry)
+
+# unittest_shared_cache
+add_executable(unittest_shared_cache
+  common/test_shared_cache.cc
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_shared_cache common global
+  ${BLKID_LIBRARIES} ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_shared_cache
+  PROPERTIES COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
+add_test(unittest_shared_cache unittest_shared_cache)
 
 # unittest_sloppy_crc_map
 set(unittest_sloppy_crc_map_srcs
@@ -463,6 +496,28 @@ target_link_libraries(unittest_util
 set_target_properties(unittest_util
   PROPERTIES COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
 add_test(unittest_util unittest_util)
+
+# unittest_crush_wrapper
+add_executable(unittest_crush_wrapper
+  crush/CrushWrapper.cc
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_crush_wrapper common global
+  ${BLKID_LIBRARIES} ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_crush_wrapper
+  PROPERTIES COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
+add_test(unittest_crush_wrapper unittest_crush_wrapper)
+
+# unittest_crush
+add_executable(unittest_crush
+  crush/crush.cc
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_crush common global
+  ${BLKID_LIBRARIES} ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_crush
+  PROPERTIES COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
+add_test(unittest_crush unittest_crush)
 
 # unittest_osdmap
 set(unittest_osdmap_srcs osd/TestOSDMap.cc)
@@ -548,16 +603,6 @@ set_target_properties(unittest_throttle PROPERTIES COMPILE_FLAGS
   ${UNITTEST_CXX_FLAGS})
 add_test(unittest_throttle unittest_throttle)
 
-# unittest_base64
-set(unittest_base64_srcs base64.cc)
-add_executable(unittest_base64
-  ${unittest_base64_srcs}
-  $<TARGET_OBJECTS:heap_profiler_objs>
-  )
-target_link_libraries(unittest_base64 global ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
-set_target_properties(unittest_base64 PROPERTIES COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
-add_test(unittest_base64 unittest_base64)
-
 # unittest_ceph_argparse
 set(unittest_ceph_argparse_srcs ceph_argparse.cc)
 add_executable(unittest_ceph_argparse
@@ -582,6 +627,17 @@ set_target_properties(unittest_ceph_compatset PROPERTIES COMPILE_FLAGS
   ${UNITTEST_CXX_FLAGS})
 add_test(unittest_ceph_compatset unittest_ceph_compatset)
 
+# unittest_msd_types
+add_executable(unittest_msd_types
+  fs/mds_types.cc
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_msd_types global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_msd_types PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_msd_types unittest_msd_types)
+
 # unittest_osd_types
 set(unittest_osd_types_srcs osd/types.cc)
 add_executable(unittest_osd_types
@@ -593,6 +649,28 @@ target_link_libraries(unittest_osd_types global ${CMAKE_DL_LIBS}
 set_target_properties(unittest_osd_types PROPERTIES COMPILE_FLAGS
   ${UNITTEST_CXX_FLAGS})
 add_test(unittest_osd_types unittest_osd_types)
+
+# unittest_lru
+add_executable(unittest_lru
+  common/test_lru.cc
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_lru global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_lru PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_lru unittest_lru)
+
+# unittest_io_priority
+add_executable(unittest_io_priority
+  common/test_io_priority.cc
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_io_priority global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_io_priority PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_io_priority unittest_io_priority)
 
 # unittest_gather
 set(unittest_gather_srcs gather.cc)
@@ -606,18 +684,6 @@ set_target_properties(unittest_gather PROPERTIES COMPILE_FLAGS
   ${UNITTEST_CXX_FLAGS})
 add_test(unittest_gather unittest_gather)
 
-# run_cmd
-set(unittest_run_cmd_srcs run_cmd.cc)
-add_executable(unittest_run_cmd
-  ${unittest_run_cmd_srcs}
-  $<TARGET_OBJECTS:heap_profiler_objs>
-  )
-target_link_libraries(unittest_run_cmd global ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} 
-  ${UNITTEST_LIBS})
-set_target_properties(unittest_run_cmd PROPERTIES COMPILE_FLAGS
-  ${UNITTEST_CXX_FLAGS})
-add_test(unittest_run_cmd unittest_run_cmd)
-
 # signals
 set(unittest_signals_srcs signals.cc)
 add_executable(unittest_signals
@@ -630,36 +696,6 @@ set_target_properties(unittest_signals PROPERTIES COMPILE_FLAGS
   ${UNITTEST_CXX_FLAGS})
 add_test(unittest_signals unittest_signals)
 
-# unittest_simple_spin
-set(unittest_simple_spin_srcs simple_spin.cc)
-add_executable(unittest_simple_spin
-  ${unittest_simple_spin_srcs}
-  $<TARGET_OBJECTS:heap_profiler_objs>
-  )
-target_link_libraries(unittest_simple_spin global ${CMAKE_DL_LIBS}
-  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
-set_target_properties(unittest_simple_spin PROPERTIES COMPILE_FLAGS
-  ${UNITTEST_CXX_FLAGS})
-add_test(unittest_simple_spin unittest_simple_spin)
-
-# unittest_librados
-set(unittest_librados_srcs librados/librados.cc)
-add_executable(unittest_librados
-  ${unittest_librados_srcs}
-  $<TARGET_OBJECTS:heap_profiler_objs>
-  )
-target_link_libraries(unittest_librados
-  librados
-  global
-  ${BLKID_LIBRARIES}
-  ${CMAKE_DL_LIBS}
-  ${TCMALLOC_LIBS}
-  ${UNITTEST_LIBS}
-  )
-set_target_properties(unittest_librados PROPERTIES COMPILE_FLAGS
-  ${UNITTEST_CXX_FLAGS})
-add_test(unittest_librados unittest_librados)
-
 # unittest_bufferlist
 set(unittest_bufferlist_srcs bufferlist.cc)
 add_executable(unittest_bufferlist
@@ -671,6 +707,17 @@ target_link_libraries(unittest_bufferlist global ${CMAKE_DL_LIBS}
 set_target_properties(unittest_bufferlist PROPERTIES COMPILE_FLAGS
   ${UNITTEST_CXX_FLAGS})
 add_test(unittest_bufferlist unittest_bufferlist)
+
+# unittest_xlist
+add_executable(unittest_xlist
+  test_xlist.cc
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_xlist global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_xlist PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_xlist unittest_xlist)
 
 # unittest_crc32
 set(unittest_crc32_srcs common/test_crc32c.cc)
@@ -695,6 +742,17 @@ target_link_libraries(unittest_arch global ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS}
 set_target_properties(unittest_arch PROPERTIES COMPILE_FLAGS
   ${UNITTEST_CXX_FLAGS})
 add_test(unittest_arch unittest_arch)
+
+# unittest_crypto
+add_executable(unittest_crypto
+  crypto.cc
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_crypto global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_crypto PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_crypto unittest_crypto)
 
 # unittest_crypto_init
 set(unittest_crypto_init_srcs crypto_init.cc)
@@ -780,44 +838,6 @@ set_target_properties(unittest_escape PROPERTIES COMPILE_FLAGS
   ${UNITTEST_CXX_FLAGS})
 add_test(unittest_escape unittest_escape)
 
-# unittest_chain_xattr
-set(unittest_chain_xattr_srcs
-  objectstore/chain_xattr.cc
-  )
-add_executable(unittest_chain_xattr
-  ${unittest_chain_xattr_srcs}
-  $<TARGET_OBJECTS:heap_profiler_objs>
-  )
-set_target_properties(unittest_chain_xattr PROPERTIES COMPILE_FLAGS
-  ${UNITTEST_CXX_FLAGS})
-target_link_libraries(unittest_chain_xattr
-  os
-  global
-  ${CMAKE_DL_LIBS}
-  ${TCMALLOC_LIBS}
-  ${UNITTEST_LIBS}
-  )
-add_test(unittest_chain_xattr unittest_chain_xattr)
-
-# unittest_flatindex
-set(unittest_flatindex_srcs
-  os/TestFlatIndex.cc
-  )
-add_executable(unittest_flatindex
-  ${unittest_flatindex_srcs}
-  $<TARGET_OBJECTS:heap_profiler_objs>
-  )
-target_link_libraries(unittest_flatindex
-  os
-  global
-  ${CMAKE_DL_LIBS}
-  ${TCMALLOC_LIBS}
-  ${UNITTEST_LIBS}
-  )
-set_target_properties(unittest_flatindex PROPERTIES COMPILE_FLAGS
-  ${UNITTEST_CXX_FLAGS})
-add_test(unittest_flatindex unittest_flatindex)
-
 # unittest_strtol
 set(unittest_strtol_srcs strtol.cc)
 add_executable(unittest_strtol
@@ -866,6 +886,17 @@ set_target_properties(unittest_context PROPERTIES COMPILE_FLAGS
   ${UNITTEST_CXX_FLAGS})
 add_test(unittest_context unittest_context)
 
+# unittest_safe_io
+add_executable(unittest_safe_io
+  common/test_safe_io.cc
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_safe_io global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_safe_io PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_safe_io unittest_safe_io)
+
 # unittest_heartbeatmap
 set(unittest_heartbeatmap_srcs heartbeat_map.cc)
 add_executable(unittest_heartbeatmap
@@ -893,48 +924,6 @@ if(${WITH_RADOSGW})
   add_test(unittest_formatter unittest_formatter)
 endif(${WITH_RADOSGW})
 
-# unittest_libcephfs_config
-set(unittest_libcephfs_config_srcs libcephfs_config.cc)
-add_executable(unittest_libcephfs_config
-  ${unittest_libcephfs_config_srcs}
-  $<TARGET_OBJECTS:heap_profiler_objs>
-  )
-target_link_libraries(unittest_libcephfs_config cephfs ${CMAKE_DL_LIBS}
-  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
-set_target_properties(unittest_libcephfs_config PROPERTIES COMPILE_FLAGS
-  ${UNITTEST_CXX_FLAGS})
-add_test(unittest_libcephfs_config unittest_libcephfs_config)
-
-# unittest_lfnindex
-set(unittest_lfnindex_srcs os/TestLFNIndex.cc)
-add_executable(unittest_lfnindex
-  ${unittest_lfnindex_srcs}
-  $<TARGET_OBJECTS:heap_profiler_objs>
-  )
-target_link_libraries(unittest_lfnindex os global ${CMAKE_DL_LIBS}
-  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
-set_target_properties(unittest_lfnindex PROPERTIES COMPILE_FLAGS
-  ${UNITTEST_CXX_FLAGS})
-add_test(unittest_lfnindex unittest_lfnindex)
-
-# unittest_librados_config
-set(unittest_librados_config_srcs librados/librados_config.cc)
-add_executable(unittest_librados_config
-  ${unittest_librados_config_srcs}
-  $<TARGET_OBJECTS:heap_profiler_objs>
-  )
-target_link_libraries(unittest_librados_config
-  librados
-  global
-  ${BLKID_LIBRARIES}
-  ${CMAKE_DL_LIBS}
-  ${TCMALLOC_LIBS}
-  ${UNITTEST_LIBS}
-  )
-set_target_properties(unittest_librados_config PROPERTIES COMPILE_FLAGS
-  ${UNITTEST_CXX_FLAGS})
-add_test(unittest_librados_config unittest_librados_config)
-
 # unittest_daemon_config
 set(unittest_daemon_config_srcs daemon_config.cc)
 add_executable(unittest_daemon_config
@@ -953,18 +942,6 @@ target_link_libraries(unittest_daemon_config
 set_target_properties(unittest_daemon_config PROPERTIES COMPILE_FLAGS
   ${UNITTEST_CXX_FLAGS})
 add_test(unittest_daemon_confi unittest_daemon_config)
-
-# unittest_mon_moncap
-set(unittest_mon_moncap_srcs mon/moncap.cc)
-add_executable(unittest_mon_moncap
-  ${unittest_mon_moncap_srcs}
-  $<TARGET_OBJECTS:heap_profiler_objs>
-  )
-target_link_libraries(unittest_mon_moncap mon global ${CMAKE_DL_LIBS}
-  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
-set_target_properties(unittest_mon_moncap PROPERTIES COMPILE_FLAGS
-  ${UNITTEST_CXX_FLAGS})
-add_test(unittest_mon_moncap unittest_mon_moncap)
 
 # unittest_ipaddr
 add_executable(unittest_ipaddr test_ipaddr.cc)
@@ -1003,6 +980,43 @@ target_link_libraries(unittest_on_exit
 set_target_properties(unittest_on_exit PROPERTIES COMPILE_FLAGS
   ${UNITTEST_CXX_FLAGS})
 add_test(unittest_on_exit unittest_on_exit)
+
+# unittest_readahead
+set(unittest_readahead_srcs common/Readahead.cc)
+add_executable(unittest_readahead
+  ${unittest_readahead_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_readahead global
+  ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_readahead PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_readahead unittest_readahead)
+
+
+# unittest_tableformatter
+set(unittest_readahead_srcs common/test_tableformatter.cc)
+add_executable(unittest_tableformatter
+  ${unittest_tableformatter_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_tableformatter global
+  ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_tableformatter PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_tableformatter unittest_tableformatter)
+
+# unittest_bit_vector
+set(unittest_bit_vector_srcs common/test_bit_vector.cc)
+add_executable(unittest_bit_vector
+  ${unittest_bit_vector_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_bit_vector global
+  ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_bit_vector PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_bit_vector unittest_bit_vector)
 
 # unittest_subprocess
 set(unittest_subprocess_srcs test_subprocess.cc)
@@ -1902,3 +1916,244 @@ if(HAVE_XIO)
     ${CMAKE_DL_LIBS}
     )
 endif(HAVE_XIO)
+
+# client unittests
+
+# unittest_librados
+set(unittest_librados_srcs librados/librados.cc)
+add_executable(unittest_librados
+  ${unittest_librados_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_librados
+  librados
+  global
+  ${BLKID_LIBRARIES}
+  ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS}
+  ${UNITTEST_LIBS}
+  )
+set_target_properties(unittest_librados PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_librados unittest_librados)
+
+# unittest_librados_config
+set(unittest_librados_config_srcs librados/librados_config.cc)
+add_executable(unittest_librados_config
+  ${unittest_librados_config_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_librados_config
+  librados
+  global
+  ${BLKID_LIBRARIES}
+  ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS}
+  ${UNITTEST_LIBS}
+  )
+set_target_properties(unittest_librados_config PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_librados_config unittest_librados_config)
+
+if(${WITH_RBD})
+  # unittest_rbd_replay
+  set(unittest_rbd_replay_srcs
+    test_rbd_replay.cc
+    ${CMAKE_SOURCE_DIR}/src/common/secret.c)
+  add_executable(unittest_rbd_replay
+    ${unittest_rbd_replay_srcs}
+    $<TARGET_OBJECTS:heap_profiler_objs>
+    )
+  target_link_libraries(unittest_rbd_replay
+    librbd
+    librados
+    global
+    udev
+    keyutils
+    librbd_replay
+    ${BLKID_LIBRARIES}
+    ${CMAKE_DL_LIBS}
+    ${TCMALLOC_LIBS}
+    ${UNITTEST_LIBS}
+    )
+  set_target_properties(unittest_rbd_replay PROPERTIES COMPILE_FLAGS
+    ${UNITTEST_CXX_FLAGS})
+  add_test(unittest_rbd_replay unittest_rbd_replay)
+endif(${WITH_RBD})
+
+# unittest_base64
+set(unittest_base64_srcs base64.cc)
+add_executable(unittest_base64
+  ${unittest_base64_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_base64 global ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_base64 PROPERTIES COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
+
+# run_cmd
+set(unittest_run_cmd_srcs run_cmd.cc)
+add_executable(unittest_run_cmd
+  ${unittest_run_cmd_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_run_cmd global ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} 
+  ${UNITTEST_LIBS})
+set_target_properties(unittest_run_cmd PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+
+# unittest_simple_spin
+set(unittest_simple_spin_srcs simple_spin.cc)
+add_executable(unittest_simple_spin
+  ${unittest_simple_spin_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_simple_spin global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_simple_spin PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+
+# unittest_libcephfs_config
+set(unittest_libcephfs_config_srcs libcephfs_config.cc)
+add_executable(unittest_libcephfs_config
+  ${unittest_libcephfs_config_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_libcephfs_config cephfs ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_libcephfs_config PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_libcephfs_config unittest_libcephfs_config)
+
+# unittest_lfnindex
+set(unittest_lfnindex_srcs os/TestLFNIndex.cc)
+add_executable(unittest_lfnindex
+  ${unittest_lfnindex_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_lfnindex os global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_lfnindex PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+
+# unittest_mon_moncap
+set(unittest_mon_moncap_srcs mon/moncap.cc)
+add_executable(unittest_mon_moncap
+  ${unittest_mon_moncap_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_mon_moncap mon global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_mon_moncap PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_mon_moncap unittest_mon_moncap)
+
+# unittest_mon_pgmap
+set(unittest_mon_pgmap_srcs mon/PGMap.cc)
+add_executable(unittest_mon_pgmap
+  ${unittest_mon_pgmap_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_mon_pgmap mon global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_mon_pgmap PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_mon_pgmap unittest_mon_pgmap)
+
+# unittest_ecbackend
+set(unittest_ecbackend_srcs osd/TestECBackend.cc)
+add_executable(unittest_ecbackend
+  ${unittest_ecbackend_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_ecbackend osd global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_ecbackend PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_ecbackend unittest_ecbackend)
+
+# unittest_osdscrub
+set(unittest_osdscrub_srcs osd/TestOSDScrub.cc
+    ${CMAKE_SOURCE_DIR}/src/common/util.cc)
+add_executable(unittest_osdscrub
+  ${unittest_osdscrub_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_osdscrub os common global osd ${BLKID_LIBRARIES}
+  ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_osdscrub PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_osdscrub unittest_osdscrub)
+
+# unittest_pglog
+set(unittest_pglog_srcs osd/TestPGLog.cc)
+add_executable(unittest_pglog
+  ${unittest_pglog_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_pglog osd global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_pglog PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_pglog unittest_pglog)
+
+# unittest_hitset
+set(unittest_hitset_srcs osd/hitset.cc)
+add_executable(unittest_hitset
+  ${unittest_hitset_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_hitset osd global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_hitset PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_hitset unittest_hitset)
+
+# unittest_osd_osdcap
+set(unittest_osd_osdcap_srcs osd/osdcap.cc)
+add_executable(unittest_osd_osdcap
+  ${unittest_osd_osdcap_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_osd_osdcap osd global ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS} ${UNITTEST_LIBS})
+set_target_properties(unittest_osd_osdcap PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_osd_osdcap unittest_osd_osdcap)
+
+# unittest_chain_xattr
+set(unittest_chain_xattr_srcs
+  objectstore/chain_xattr.cc
+  )
+add_executable(unittest_chain_xattr
+  ${unittest_chain_xattr_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+set_target_properties(unittest_chain_xattr PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+target_link_libraries(unittest_chain_xattr
+  os
+  global
+  ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS}
+  ${UNITTEST_LIBS}
+  )
+add_test(unittest_chain_xattr unittest_chain_xattr)
+
+# unittest_flatindex
+set(unittest_flatindex_srcs
+  os/TestFlatIndex.cc
+  )
+add_executable(unittest_flatindex
+  ${unittest_flatindex_srcs}
+  $<TARGET_OBJECTS:heap_profiler_objs>
+  )
+target_link_libraries(unittest_flatindex
+  os
+  global
+  ${CMAKE_DL_LIBS}
+  ${TCMALLOC_LIBS}
+  ${UNITTEST_LIBS}
+  )
+set_target_properties(unittest_flatindex PROPERTIES COMPILE_FLAGS
+  ${UNITTEST_CXX_FLAGS})
+add_test(unittest_flatindex unittest_flatindex)
