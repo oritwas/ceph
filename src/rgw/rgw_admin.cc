@@ -82,6 +82,7 @@ void _usage()
   cerr << "  realm delete               delete a realm\n";
   cerr << "  realm get                  show realm info\n";
   cerr << "  realm get-default          get default realm name\n";
+  cerr << "  realm list                 list realms\n";
   cerr << "  realm remove               remove a zonegroup from the realm\n";
   cerr << "  realm rename               rename a realm\n";
   cerr << "  realm set-default          set realm as default\n";
@@ -294,6 +295,7 @@ enum {
   OPT_REALM_DELETE,
   OPT_REALM_GET,
   OPT_REALM_GET_DEFAULT,
+  OPT_REALM_LIST,
   OPT_REALM_REMOVE,
   OPT_REALM_RENAME,
   OPT_REALM_SET_DEFAULT,
@@ -470,6 +472,8 @@ static int get_cmd(const char *cmd, const char *prev_cmd, const char *prev_prev_
 	  return OPT_REALM_GET;
     if (strcmp(cmd, "get-default") == 0)
 	  return OPT_REALM_GET_DEFAULT;
+    if (strcmp(cmd, "list") == 0)
+	  return OPT_REALM_LIST;
     if (strcmp(cmd, "remove") == 0)
       return OPT_REALM_REMOVE;
     if (strcmp(cmd, "rename") == 0)
@@ -1468,7 +1472,7 @@ int main(int argc, char **argv)
       period_id = val;
     } else if (ceph_argparse_witharg(args, i, &val, "--url", (char*)NULL)) {
       url = val;
-    } else if (ceph_argparse_witharg(args, i, &val, "--realm-name", (char*)NULL)) {
+    } else if (ceph_argparse_witharg(args, i, &val, "--realm", (char*)NULL)) {
       realm_name = val;
     } else if (ceph_argparse_witharg(args, i, &val, "--realm-id", (char*)NULL)) {
       realm_id = val;
@@ -1477,7 +1481,7 @@ int main(int argc, char **argv)
     } else if (ceph_argparse_witharg(args, i, &val, "--zonegroup-name", (char*)NULL)) {
       zonegroup_name = val;
     } else if (ceph_argparse_witharg(args, i, &val, "--zone-name", (char*)NULL)) {
-      zonegroup_name = val;
+      zone_name = val;
     } else if (strncmp(*i, "-", 1) == 0) {
       cerr << "ERROR: invalid flag " << *i << std::endl;
       return EINVAL;
@@ -1551,7 +1555,7 @@ int main(int argc, char **argv)
 			 opt_cmd == OPT_PERIOD_PREPARE || opt_cmd == OPT_PERIOD_ACTIVATE ||
 			 opt_cmd == OPT_PERIOD_DELETE || opt_cmd == OPT_PERIOD_GET ||
 			 opt_cmd == OPT_PERIOD_PULL || opt_cmd == OPT_PERIOD_PUSH ||
-			 opt_cmd == OPT_PERIOD_GET_CURRENT ||
+			 opt_cmd == OPT_PERIOD_GET_CURRENT || opt_cmd == OPT_REALM_LIST ||
 			 opt_cmd == OPT_REALM_DELETE || opt_cmd == OPT_REALM_GET ||
 			 opt_cmd == OPT_REALM_GET_DEFAULT || opt_cmd == OPT_REALM_REMOVE ||
 			 opt_cmd == OPT_REALM_RENAME || opt_cmd == OPT_REALM_SET_DEFAULT);
@@ -1775,18 +1779,26 @@ int main(int argc, char **argv)
 	cout << "default realm: " << default_id << std::endl;
       }
       break;
-    case OPT_REALM_REMOVE:
+    case OPT_REALM_LIST:
       {
-	RGWRealm realm(realm_id, realm_name);
-	if (realm_name.empty() && realm_id.empty()) {
-	  cerr << "missing realm name or id" << std::endl;
-	  return -EINVAL;
+	RGWRealm realm(g_ceph_context, store);
+	string default_id;
+	int ret = realm.read_default_id(default_id);
+	if (ret < 0 && ret != -ENOENT) {
+	  cerr << "could not determine default realm: " << cpp_strerror(-ret) << std::endl;
 	}
-	int ret = realm.init(g_ceph_context, store, true);
+	list<string> realms;
+	ret = store->list_realms(realms);
 	if (ret < 0) {
-	  cerr << "realm.init failed: " << cpp_strerror(-ret) << std::endl;
+	  cerr << "failed to list realmss: " << cpp_strerror(-ret) << std::endl;
 	  return -ret;
 	}
+	formatter->open_object_section("realmss_list");
+	encode_json("default_info", default_id, formatter);
+	encode_json("realms", realms, formatter);
+	formatter->close_section();
+	formatter->flush(cout);
+	cout << std::endl;
       }
       break;
     case OPT_REALM_RENAME:

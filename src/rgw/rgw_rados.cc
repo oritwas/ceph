@@ -2267,6 +2267,13 @@ int RGWRados::list_zones(list<string>& zones)
   return list_raw_prefixed_objs(pool_name, zone_info_oid_prefix, zones);
 }
 
+int RGWRados::list_realms(list<string>& realms)
+{
+  RGWRealm realm(cct, this);
+  string pool_name = realm.get_pool_name(cct);
+  return list_raw_prefixed_objs(pool_name, realm_names_oid_prefix, realms);
+}
+
 /**
  * Open the pool used as root for this gateway
  * Returns: 0 on success, -ERR# otherwise.
