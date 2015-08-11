@@ -855,7 +855,9 @@ if(${WITH_RADOSGW})
     rgw/rgw_keystone.cc
     rgw/rgw_quota.cc
     rgw/rgw_sync.cc
-    rgw/rgw_dencoder.cc)
+    rgw/rgw_dencoder.cc
+    rgw/rgw_coroutine.cc
+    )
 
   add_library(rgw_a STATIC ${rgw_a_srcs})
 
