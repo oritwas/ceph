@@ -763,7 +763,7 @@ void RGWZoneGroup::dump(Formatter *f) const
 {
   encode_json("name", name, f);
   encode_json("api_name", api_name, f);
-  encode_json("is_master", is_master, f);
+  encode_json("is_master", master, f);
   encode_json("endpoints", endpoints, f);
   encode_json("hostnames", hostnames, f);
   encode_json("master_zone", master_zone, f);
@@ -791,7 +791,7 @@ void RGWZoneGroup::decode_json(JSONObj *obj)
 {
   JSONDecoder::decode_json("name", name, obj);
   JSONDecoder::decode_json("api_name", api_name, obj);
-  JSONDecoder::decode_json("is_master", is_master, obj);
+  JSONDecoder::decode_json("is_master", master, obj);
   JSONDecoder::decode_json("endpoints", endpoints, obj);
   JSONDecoder::decode_json("hostnames", hostnames, obj);
   JSONDecoder::decode_json("master_zone", master_zone, obj);
@@ -799,7 +799,6 @@ void RGWZoneGroup::decode_json(JSONObj *obj)
   JSONDecoder::decode_json("placement_targets", placement_targets, decode_placement_targets, obj);
   JSONDecoder::decode_json("default_placement", default_placement, obj);
 }
-
 
 void RGWZoneGroupMap::dump(Formatter *f) const
 {
@@ -861,7 +860,7 @@ static void decode_zonegroups(map<string, RGWZoneGroup>& zonegroups, JSONObj *o)
 {
   RGWZoneGroup zg;
   zg.decode_json(o);
-  zonegroups[zg.name] = zg;
+  zonegroups[zg.get_name()] = zg;
 }
 
 void RGWRealm::decode_json(JSONObj *obj)

@@ -31,6 +31,12 @@ class RGWRESTConn;
 #define RGW_OBJ_NS_SHADOW    "shadow"
 
 #define RGW_BUCKET_INSTANCE_MD_PREFIX ".bucket.meta."
+static string RGW_DEFAULT_ZONEGROUP_ROOT_POOL = "rgw.root";
+static string region_info_oid_prefix = "region_info.";
+static string zone_group_info_oid_prefix = "zonegroup_info.";
+static string zonegroup_names_oid_prefix = "zonegroups_names.";
+static string default_zone_group_info_oid = "default.zonegroup";
+static string default_region_info_oid = "default.region";
 
 static inline void prepend_bucket_marker(rgw_bucket& bucket, const string& orig_oid, string& oid)
 {
@@ -734,12 +740,12 @@ protected:
 
   int store_name(bool exclusive);
   int store_info(bool exclusive);
-  int read_info(const string& obj_id);
+  int read_info(const string& obj_id, bool old_format);
   int read_id(const string& obj_name, string& obj_id);
-  int read_default(RGWDefaultSystemMetaObjInfo& default_info);
+  int read_default(RGWDefaultSystemMetaObjInfo& default_info, bool old_format = false);
   /* read and use default id */
   int use_default();
-
+  virtual int create_default() = 0;
 public:
   RGWSystemMetaObj() {}
   RGWSystemMetaObj(const string& _name): name(_name)  {}
@@ -765,20 +771,19 @@ public:
     DECODE_FINISH(bl);
   }
 
-  int init(CephContext *_cct, RGWRados *_store, bool setup_obj = true);
-  int read_default_id(string& default_id);
+  int init(CephContext *_cct, RGWRados *_store, bool setup_obj = true, bool old_format = false);
+  int read_default_id(string& default_id, bool old_format = false);
   int set_as_default();
   int delete_default();
   int create();
-  int delete_obj();
+  int delete_obj(bool old_format = false);
   int rename(const string& new_name);
-  int update() { return store_info(false);}
+  int update() { return store_info(true);}
 
   virtual const string& get_pool_name(CephContext *cct) = 0;
-
-  virtual const string& get_default_oid() = 0;
+  virtual const string& get_default_oid(bool old_format = false) = 0;
   virtual const string& get_names_oid_prefix() = 0;
-  virtual const string& get_info_oid_prefix() = 0;
+  virtual const string& get_info_oid_prefix(bool old_format = false) = 0;
 
   void dump(Formatter *f) const;
   void decode_json(JSONObj *obj);
@@ -941,25 +946,6 @@ struct RGWZone {
 };
 WRITE_CLASS_ENCODER(RGWZone)
 
-struct RGWDefaultZoneGroupInfo {
-  string default_zonegroup;
-
-  void encode(bufferlist& bl) const {
-    ENCODE_START(1, 1, bl);
-    ::encode(default_zonegroup, bl);
-    ENCODE_FINISH(bl);
-  }
-
-  void decode(bufferlist::iterator& bl) {
-    DECODE_START(1, bl);
-    ::decode(default_zonegroup, bl);
-    DECODE_FINISH(bl);
-  }
-  void dump(Formatter *f) const;
-  void decode_json(JSONObj *obj);
-};
-WRITE_CLASS_ENCODER(RGWDefaultZoneGroupInfo)
-
 struct RGWZoneGroupPlacementTarget {
   string name;
   list<string> tags;
@@ -998,11 +984,10 @@ struct RGWZoneGroupPlacementTarget {
 WRITE_CLASS_ENCODER(RGWZoneGroupPlacementTarget)
 
 
-struct RGWZoneGroup {
-  string name;
+class RGWZoneGroup : public RGWSystemMetaObj {
   string api_name;
   list<string> endpoints;
-  bool is_master;
+  bool master;
 
   string master_zone;
   map<string, RGWZone> zones;
@@ -1011,17 +996,17 @@ struct RGWZoneGroup {
   string default_placement;
 
   list<string> hostnames;
-
-  CephContext *cct;
-  RGWRados *store;
-
-  RGWZoneGroup() : is_master(false), cct(NULL), store(NULL) {}
-  RGWZoneGroup(const std::string &_name):name(_name) {}
+protected:
+  int create_default();
+public:
+  RGWZoneGroup() : master(false){}
+  RGWZoneGroup(const std::string &zonegroup_name): RGWSystemMetaObj(zonegroup_name), master(false) {}
+  
   void encode(bufferlist& bl) const {
-    ENCODE_START(2, 1, bl);
-    ::encode(name, bl);
+    ENCODE_START(3, 1, bl);
+    RGWSystemMetaObj::encode(bl);
     ::encode(api_name, bl);
-    ::encode(is_master, bl);
+    ::encode(master, bl);
     ::encode(endpoints, bl);
     ::encode(master_zone, bl);
     ::encode(zones, bl);
@@ -1031,11 +1016,16 @@ struct RGWZoneGroup {
     ENCODE_FINISH(bl);
   }
 
-  void decode(bufferlist::iterator& bl) {
-    DECODE_START(2, bl);
-    ::decode(name, bl);
+  void decode(bufferlist::iterator& bl) {    
+    DECODE_START(3, bl);
+    if (struct_v >= 3) 
+      RGWSystemMetaObj::decode(bl);
+    else {
+      ::decode(name, bl);
+      id = name;
+    }    
     ::decode(api_name, bl);
-    ::decode(is_master, bl);
+    ::decode(master, bl);
     ::decode(endpoints, bl);
     ::decode(master_zone, bl);
     ::decode(zones, bl);
@@ -1047,25 +1037,58 @@ struct RGWZoneGroup {
     DECODE_FINISH(bl);
   }
 
-  int init(CephContext *_cct, RGWRados *_store, bool setup_zonegroup = true,
-	   bool old_region_format = false);
-  int create_default();
-  int store_info(bool exclusive);
-  int read_info(const string& zonegroup_name, bool old_region_format = false);
-  int read_default(RGWDefaultZoneGroupInfo& default_zonegroup,
-		   const string& oid);
-  int set_as_default();
-  int equals(const string& other_zonegroup);
-  int create();
-  int delete_obj(bool old_region_format = false);
-  const string& get_pool_name(CephContext *cct);
-  const string& get_default_oid(CephContext *cct, bool old_region_format = false);
-  const string& get_info_oid_prefix(bool old_region_format = false);
-  const string& get_json_perfix();
+  const string& get_api_name() { return api_name;}
+  list<string>& get_endpoints() { return endpoints;}
+  bool is_master() { return master; }
+  const string& get_master_zone() { return master_zone;}
+  map<string, RGWZone>& get_zones() { return zones;}
+  map<string, RGWZoneGroupPlacementTarget>& get_placement_targets() { return placement_targets;}
+  const string& get_default_placement() { return default_placement;}
+  list<string> get_hostnames() { return hostnames;}
+  
+  int equals(const string& other_zonegroup) {
+    if (is_master() && other_zonegroup.empty())
+      return true;
+    return (name == other_zonegroup);
+  }
+
+  const string&  get_pool_name(CephContext *cct) {
+    if (cct->_conf->rgw_zonegroup_root_pool.empty()) {
+      return RGW_DEFAULT_ZONEGROUP_ROOT_POOL;
+    }
+    return cct->_conf->rgw_zonegroup_root_pool;
+  }
+  
+  const string& get_default_oid(bool old_region_format = false) {
+    if (old_region_format) {
+      if (cct->_conf->rgw_default_region_info_oid.empty()) {
+	return default_region_info_oid;
+      }
+      return cct->_conf->rgw_default_region_info_oid;
+    }
+    
+    if (cct->_conf->rgw_default_zonegroup_info_oid.empty()) {
+      return default_zone_group_info_oid;
+    }
+
+    return cct->_conf->rgw_default_zonegroup_info_oid;
+  }
+
+  const string& get_info_oid_prefix(bool old_region_format = false) {
+    if (old_region_format) {
+      return region_info_oid_prefix;
+    }
+    return zone_group_info_oid_prefix;
+  }
+
+  const string& get_names_oid_prefix() {
+    return zonegroup_names_oid_prefix;
+  }
 
   void dump(Formatter *f) const;
   void decode_json(JSONObj *obj);
 };
+
 WRITE_CLASS_ENCODER(RGWZoneGroup)
 
 struct RGWZoneGroupMap {
@@ -1099,6 +1122,10 @@ class RGWRealm : public RGWSystemMetaObj
   string master_zonegroup;
   map<string, RGWZoneGroup> zonegroups;
 
+protected:
+  int create_default() {
+      return -ENOENT;
+  }
 public:
   RGWRealm() {}
   RGWRealm(const string& _id, const string& _name) : RGWSystemMetaObj(_id, _name) {}  
@@ -1122,9 +1149,9 @@ public:
   }
 
   const string& get_pool_name(CephContext *cct);
-  const string& get_default_oid();
+  const string& get_default_oid(bool old_format = false);
   const string& get_names_oid_prefix();
-  const string& get_info_oid_prefix();
+  const string& get_info_oid_prefix(bool old_format = false);
 
   void dump(Formatter *f) const;
   void decode_json(JSONObj *obj);

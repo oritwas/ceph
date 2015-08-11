@@ -197,7 +197,7 @@ void rgw_rest_init(CephContext *cct, RGWZoneGroup& zone_group)
   if (!cct->_conf->rgw_dns_name.empty()) {
     hostnames_set.insert(cct->_conf->rgw_dns_name);
   }
-  hostnames_set.insert(zone_group.hostnames.begin(),  zone_group.hostnames.end());
+  hostnames_set.insert(zone_group.get_hostnames().begin(),  zone_group.get_hostnames().end());
   /* TODO: We should have a sanity check that no hostname matches the end of
    * any other hostname, otherwise we will get ambigious results from
    * rgw_find_host_in_domains.

@@ -406,15 +406,15 @@ static int rgw_build_policies(RGWRados *store, struct req_state *s, bool only_bu
 
     string& zonegroup = s->bucket_info.zonegroup;
     map<string, RGWZoneGroup>::iterator dest_zonegroup = store->zonegroup_map.zonegroups.find(zonegroup);
-    if (dest_zonegroup != store->zonegroup_map.zonegroups.end() && !dest_zonegroup->second.endpoints.empty()) {
-      s->zonegroup_endpoint = dest_zonegroup->second.endpoints.front();
+    if (dest_zonegroup != store->zonegroup_map.zonegroups.end() && !dest_zonegroup->second.get_endpoints().empty()) {
+      s->zonegroup_endpoint = dest_zonegroup->second.get_endpoints().front();
     }
     if (s->bucket_exists && !store->zonegroup.equals(zonegroup)) {
-      ldout(s->cct, 0) << "NOTICE: request for data in a different zonegroup (" << zonegroup << " != " << store->zonegroup.name << ")" << dendl;
+      ldout(s->cct, 0) << "NOTICE: request for data in a different zonegroup (" << zonegroup << " != " << store->zonegroup.get_name() << ")" << dendl;
       /* we now need to make sure that the operation actually requires copy source, that is
        * it's a copy operation
        */
-      if (store->zonegroup.is_master && s->op == OP_DELETE && s->system_request) {
+      if (store->zonegroup.is_master() && s->op == OP_DELETE && s->system_request) {
         /*If the operation is delete and if this is the master, don't redirect*/
       } else if (!s->local_source ||
           (s->op != OP_PUT && s->op != OP_COPY) ||
@@ -1354,9 +1354,9 @@ void RGWCreateBucket::execute()
   if (ret < 0)
     return;
 
-  if (!store->zonegroup.is_master &&
-      store->zonegroup.api_name != location_constraint) {
-    ldout(s->cct, 0) << "location constraint (" << location_constraint << ") doesn't match zonegroup" << " (" << store->zonegroup.api_name << ")" << dendl;
+  if (!store->zonegroup.is_master() &&
+      store->zonegroup.get_api_name() != location_constraint) {
+    ldout(s->cct, 0) << "location constraint (" << location_constraint << ") doesn't match zonegroup" << " (" << store->zonegroup.get_api_name() << ")" << dendl;
     ret = -EINVAL;
     return;
   }
@@ -1385,7 +1385,7 @@ void RGWCreateBucket::execute()
   rgw_bucket *pmaster_bucket;
   time_t creation_time;
 
-  if (!store->zonegroup.is_master) {
+  if (!store->zonegroup.is_master()) {
     JSONParser jp;
     ret = forward_request_to_master(s, NULL, store, in_data, &jp);
     if (ret < 0)
@@ -1409,10 +1409,10 @@ void RGWCreateBucket::execute()
   if (s->system_request) {
     zonegroup_name = s->info.args.get(RGW_SYS_PARAM_PREFIX "region");
     if (zonegroup_name.empty()) {
-      zonegroup_name = store->zonegroup.name;
+      zonegroup_name = store->zonegroup.get_name();
     }
   } else {
-    zonegroup_name = store->zonegroup.name;
+    zonegroup_name = store->zonegroup.get_name();
   }
 
   if (s->bucket_exists) {
@@ -1523,7 +1523,7 @@ void RGWDeleteBucket::execute()
     return;
   }
 
-  if (!store->zonegroup.is_master) {
+  if (!store->zonegroup.is_master()) {
     bufferlist in_data;
     JSONParser jp;
     ret = forward_request_to_master(s, &ot.read_version, store, in_data, &jp);
