@@ -999,6 +999,7 @@ WRITE_CLASS_ENCODER(RGWZoneGroupPlacementTarget)
 
 
 struct RGWZoneGroup {
+  string id;
   string name;
   string api_name;
   list<string> endpoints;
@@ -1018,7 +1019,8 @@ struct RGWZoneGroup {
   RGWZoneGroup() : is_master(false), cct(NULL), store(NULL) {}
   RGWZoneGroup(const std::string &_name):name(_name) {}
   void encode(bufferlist& bl) const {
-    ENCODE_START(2, 1, bl);
+    ENCODE_START(3, 1, bl);
+    ::encode(id, bl);
     ::encode(name, bl);
     ::encode(api_name, bl);
     ::encode(is_master, bl);
@@ -1032,8 +1034,12 @@ struct RGWZoneGroup {
   }
 
   void decode(bufferlist::iterator& bl) {
-    DECODE_START(2, bl);
+    DECODE_START(3, bl);
+    if (struct_v >= 3)
+      ::decode(id, bl);
     ::decode(name, bl);
+    if (struct_v < 3)
+      id = name;
     ::decode(api_name, bl);
     ::decode(is_master, bl);
     ::decode(endpoints, bl);
@@ -1047,6 +1053,7 @@ struct RGWZoneGroup {
     DECODE_FINISH(bl);
   }
 
+  int read_id(const string& obj_name, string& obj_id);
   int init(CephContext *_cct, RGWRados *_store, bool setup_zonegroup = true,
 	   bool old_region_format = false);
   int create_default();
@@ -1059,10 +1066,11 @@ struct RGWZoneGroup {
   int create();
   int delete_obj(bool old_region_format = false);
   const string& get_pool_name(CephContext *cct);
-  const string& get_default_oid(CephContext *cct, bool old_region_format = false);
+  const string& get_default_oid(bool old_region_format = false);
   const string& get_info_oid_prefix(bool old_region_format = false);
   const string& get_json_perfix();
-
+  const string& get_names_oid_prefix();
+  
   void dump(Formatter *f) const;
   void decode_json(JSONObj *obj);
 };
@@ -1492,7 +1500,7 @@ protected:
 
   bool pools_initialized;
 
-  string zonegroup_name;
+  string zonegroup_id;
   string zone_name;
 
   RGWQuotaHandler *quota_handler;
@@ -1521,14 +1529,6 @@ public:
 
   void set_context(CephContext *_cct) {
     cct = _cct;
-  }
-
-  void set_zonegroup(const string& name) {
-    zonegroup_name = name;
-  }
-
-  void set_zone(const string& name) {
-    zone_name = name;
   }
 
   RGWRealm realm;
@@ -1622,14 +1622,14 @@ public:
    * returns 0 on success, -ERR# otherwise.
    */
   virtual int init_bucket_index(rgw_bucket& bucket, int num_shards);
-  int select_bucket_placement(RGWUserInfo& user_info, const string& zonegroup_name, const std::string& rule,
+  int select_bucket_placement(RGWUserInfo& user_info, const string& zonegroup_id, const std::string& rule,
                               const std::string& bucket_name, rgw_bucket& bucket, string *pselected_rule);
   int select_legacy_bucket_placement(const string& bucket_name, rgw_bucket& bucket);
-  int select_new_bucket_location(RGWUserInfo& user_info, const string& zonegroup_name, const string& rule,
+  int select_new_bucket_location(RGWUserInfo& user_info, const string& zonegroup_id, const string& rule,
                                  const std::string& bucket_name, rgw_bucket& bucket, string *pselected_rule);
   int set_bucket_location_by_rule(const string& location_rule, const std::string& bucket_name, rgw_bucket& bucket);
   virtual int create_bucket(RGWUserInfo& owner, rgw_bucket& bucket,
-                            const string& zonegroup_name,
+                            const string& zonegroup_id,
                             const string& placement_rule,
                             map<std::string,bufferlist>& attrs,
                             RGWBucketInfo& bucket_info,
