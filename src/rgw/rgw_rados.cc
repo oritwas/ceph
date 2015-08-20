@@ -203,13 +203,9 @@ int RGWZoneGroup::init(CephContext *_cct, RGWRados *_store, bool setup_zonegroup
   if (!setup_zonegroup)
     return 0;
 
-  string zonegroup_name = name;
+  string zonegroup_name;
   if (name.empty()) {
     zonegroup_name = cct->_conf->rgw_zonegroup;
-    if (zonegroup_name.empty() && !cct->_conf->rgw_region.empty()) {
-      zonegroup_name = cct->_conf->rgw_region;
-    }
-
     if (zonegroup_name.empty()) {
       RGWDefaultZoneGroupInfo default_info;
       int r = read_default(default_info, get_default_oid(cct, old_region_format));
@@ -2180,7 +2176,13 @@ int RGWRados::replace_region_with_zonegroup()
     }
   }    
 
-  /* update region for all zones */
+  if (!cct->_conf->rgw_region.empty() && cct->_conf->rgw_zonegroup.empty()) {
+    ret = cct->_conf->set_val("rgw_zonegroup", cct->_conf->rgw_region.c_str());
+    if (ret < 0) {
+      derr << "failed to set rgw_zonegroup to " << cct->_conf->rgw_region << dendl;
+    }
+  }
+
   return ret;
 }
 
