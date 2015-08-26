@@ -861,7 +861,7 @@ static void decode_zonegroups(map<string, RGWZoneGroup>& zonegroups, JSONObj *o)
 {
   RGWZoneGroup zg;
   zg.decode_json(o);
-  zonegroups[zg.name] = zg;
+  zonegroups[zg.get_id()] = zg;
 }
 
 void RGWRealm::decode_json(JSONObj *obj)
