@@ -1833,6 +1833,9 @@ int main(int argc, char **argv)
 	  cerr << "ERROR: couldn't create realm " << realm_name << ": " << cpp_strerror(-ret) << std::endl;
 	  return ret;
 	}
+	encode_json("realm", realm, formatter);
+	formatter->flush(cout);
+	cout << std::endl;
       }
       break;
     case OPT_REALM_DELETE:
@@ -1989,6 +1992,10 @@ int main(int argc, char **argv)
 	  cerr << "failed to create zonegroup" << zonegroup_name << ": " << cpp_strerror(-ret) << std::endl;
 	  return -ret;
 	}
+
+	encode_json("zonegroup", zonegroup, formatter);
+	formatter->flush(cout);
+	cout << std::endl;
       }
       break;
     case OPT_ZONEGROUP_DEFAULT:
@@ -2212,6 +2219,10 @@ int main(int argc, char **argv)
 	       << cpp_strerror(-ret) << std::endl;
 	  return ret;
 	}
+
+	encode_json("zone", zone, formatter);
+	formatter->flush(cout);
+	cout << std::endl;
       }
       break;
    case OPT_ZONE_DELETE:
