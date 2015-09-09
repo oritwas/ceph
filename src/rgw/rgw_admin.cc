@@ -83,12 +83,14 @@ void _usage()
   cout << "  quota disable              disable quota\n";
   cout << "  realm create               create a new realm\n";
   cout << "  realm delete               delete a realm\n";
+
   cout << "  realm get                  show realm info\n";
   cout << "  realm get-default          get default realm name\n";
   cout << "  realm list                 list realms\n";
   cout << "  realm list-periods         list all realm periods\n";  
   cout << "  realm remove               remove a zonegroup from the realm\n";
   cout << "  realm rename               rename a realm\n";
+  cout << "  realm set                  set realm info (requires infile)\n";
   cout << "  realm set-default          set realm as default\n";
   cout << "  zonegroup create           create a new zone group info\n";
   cout << "  zonegroup default          set default zone group\n";
@@ -318,6 +320,7 @@ enum {
   OPT_REALM_LIST_PERIODS,
   OPT_REALM_REMOVE,
   OPT_REALM_RENAME,
+  OPT_REALM_SET,
   OPT_REALM_SET_DEFAULT,
   OPT_PERIOD_PREPARE,
   OPT_PERIOD_DELETE,
@@ -507,6 +510,8 @@ static int get_cmd(const char *cmd, const char *prev_cmd, const char *prev_prev_
       return OPT_REALM_REMOVE;
     if (strcmp(cmd, "rename") == 0)
       return OPT_REALM_RENAME;
+    if (strcmp(cmd, "set") == 0)
+      return OPT_REALM_SET;
     if (strcmp(cmd, "set-default") == 0)
       return OPT_REALM_SET_DEFAULT;
   } else if (strcmp(prev_cmd, "zonegroup") == 0) {
@@ -1655,7 +1660,8 @@ int main(int argc, char **argv)
 			 opt_cmd == OPT_REALM_DELETE || opt_cmd == OPT_REALM_GET || opt_cmd == OPT_REALM_LIST ||
 			 opt_cmd == OPT_REALM_LIST_PERIODS ||
 			 opt_cmd == OPT_REALM_GET_DEFAULT || opt_cmd == OPT_REALM_REMOVE ||
-			 opt_cmd == OPT_REALM_RENAME || opt_cmd == OPT_REALM_SET_DEFAULT);
+			 opt_cmd == OPT_REALM_RENAME || opt_cmd == OPT_REALM_SET ||
+			 opt_cmd == OPT_REALM_SET_DEFAULT);
 
   if (raw_storage_op) {
     store = RGWStoreManager::get_raw_storage(g_ceph_context);
@@ -1988,6 +1994,36 @@ int main(int argc, char **argv)
 	}
       }
       break;
+    case OPT_REALM_SET:
+      {
+	if (realm_id.empty() && realm_name.empty()) {
+	  cerr << "no realm name or id provided" << std::endl;
+	  return -EINVAL;
+	}
+        if (infile.empty()) {
+	  cerr << "no realm input file provided" << std::endl;
+	  return -EINVAL;
+        }
+	RGWRealm realm(realm_id, realm_name);
+	int ret = realm.init(g_ceph_context, store, false);
+	if (ret < 0) {
+	  cerr << "failed to init realm: " << cpp_strerror(-ret) << std::endl;
+	  return -ret;
+	}
+	ret = read_decode_json(infile, realm);
+	if (ret < 0) {
+	  return 1;
+	}
+	ret = realm.update();
+	if (ret < 0) {
+	  cerr << "ERROR: couldn't store realm info: " << cpp_strerror(-ret) << std::endl;
+	  return 1;
+	}
+	encode_json("realm", realm, formatter);
+	formatter->flush(cout);
+      }
+      break;
+
     case OPT_REALM_SET_DEFAULT:
       {
 	RGWRealm realm(realm_id, realm_name);
