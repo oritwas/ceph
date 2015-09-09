@@ -77,7 +77,7 @@ void _usage()
   cout << "  period get-current         get current period info\n";
   cout << "  period pull                pull a period\n";
   cout << "  period push                push a period\n";
-  cout << "  period list                list all period\n";
+  cout << "  period list                list all periods\n";
   cout << "  quota set                  set quota params\n";
   cout << "  quota enable               enable quota\n";
   cout << "  quota disable              disable quota\n";
