@@ -6,8 +6,6 @@
 #include <sstream>
 #include <string>
 
-using namespace std;
-
 #include "auth/Crypto.h"
 
 #include "common/armor.h"
@@ -34,6 +32,8 @@ using namespace std;
 #include "rgw_orphan.h"
 #include "rgw_sync.h"
 #include "rgw_rest_conn.h"
+
+using namespace std;
 
 #define dout_subsys ceph_subsys_rgw
 
@@ -87,6 +87,7 @@ void _usage()
   cerr << "  realm list-periods         list all realm periods\n";
   cerr << "  realm remove               remove a zonegroup from the realm\n";
   cerr << "  realm rename               rename a realm\n";
+  cerr << "  realm set                  set realm info (requires infile)\n";
   cerr << "  realm set-default          set realm as default\n";
   cerr << "  zonegroup create           create a new zone group info\n";
   cerr << "  zonegroup default          set default zone group\n";
@@ -164,9 +165,10 @@ void _usage()
   cerr << "   --remote=<remote>         remote to pull period\n";
   cerr << "   --parent=<id>             parent period id\n";
   cerr << "   --period=<id>             period id\n";
+  cerr << "   --epoch=<number>          period epoch\n";
   cerr << "   --master-zonegroup=<id>   master zonegroup id\n";
   cerr << "   --master-zone=<id>        master zone id\n";
-  cerr << "   --realm=<realm>     realm name\n";
+  cerr << "   --realm=<realm>           realm name\n";
   cerr << "   --realm-id=<realm id>     realm id\n";
   cerr << "   --realm-new-name=<realm new name> realm new name\n";
   cerr << "   --zonegroup=<zonegroup>   zonegroup name\n";
@@ -313,6 +315,7 @@ enum {
   OPT_REALM_LIST_PERIODS,
   OPT_REALM_REMOVE,
   OPT_REALM_RENAME,
+  OPT_REALM_SET,
   OPT_REALM_SET_DEFAULT,
   OPT_PERIOD_PREPARE,
   OPT_PERIOD_DELETE,
@@ -498,6 +501,8 @@ static int get_cmd(const char *cmd, const char *prev_cmd, const char *prev_prev_
       return OPT_REALM_REMOVE;
     if (strcmp(cmd, "rename") == 0)
       return OPT_REALM_RENAME;
+    if (strcmp(cmd, "set") == 0)
+      return OPT_REALM_SET;
     if (strcmp(cmd, "set-default") == 0)
       return OPT_REALM_SET_DEFAULT;
   } else if (strcmp(prev_cmd, "zonegroup") == 0) {
@@ -1191,9 +1196,10 @@ int do_check_object_locator(const string& bucket_name, bool fix, bool remove_bad
 }
 
 #define MAX_REST_RESPONSE (128 * 1024) // we expect a very small response
-int send_to_remote_gateway(const string& remote,req_info& info, JSONParser& p)
+int send_to_remote_gateway(const string& remote, req_info& info, JSONParser& p,
+                           bufferlist &in_data)
 {
-  bufferlist in_data, response;
+  bufferlist response;
   RGWRESTConn *conn;
   if (remote.empty()) {
     if (!store->rest_master_conn) {
@@ -1209,7 +1215,26 @@ int send_to_remote_gateway(const string& remote,req_info& info, JSONParser& p)
     }
     conn = iter->second;
   }
-  int ret = conn->forward("admin", info, NULL, MAX_REST_RESPONSE, &in_data, &response);
+  int ret = conn->forward("", info, NULL, MAX_REST_RESPONSE, &in_data, &response);
+  if (ret < 0) {
+    return ret;
+  }
+  ret = p.parse(response.c_str(), response.length());
+  if (ret < 0) {
+    cout << "failed to parse response" << std::endl;
+    return ret;
+  }
+  return 0;
+}
+
+int send_to_url(const string& url, RGWAccessKey& key, req_info& info,
+                JSONParser& p, bufferlist &in_data)
+{
+  list<pair<string, string> > params;
+  RGWRESTSimpleRequest req(g_ceph_context, url, NULL, &params);
+
+  bufferlist response;
+  int ret = req.forward_request(key, info, MAX_REST_RESPONSE, &in_data, &response);
   if (ret < 0) {
     return ret;
   }
@@ -1235,12 +1260,11 @@ int main(int argc, char **argv)
   std::string date, subuser, access, format;
   std::string start_date, end_date;
   std::string key_type_str;
-  std::string period_id, url, parent_period;
+  std::string period_id, period_epoch, remote, url, parent_period;
   std::string master_zonegroup, master_zone;
   std::string realm_name, realm_id, realm_new_name;
   std::string zone_name, zone_id, zone_new_name;
   std::string zonegroup_name, zonegroup_id, zonegroup_new_name;
-  epoch_t period_epoch = 0;
   int key_type = KEY_TYPE_UNDEFINED;
   rgw_bucket bucket;
   uint32_t perm_mask = 0;
@@ -1509,6 +1533,10 @@ int main(int argc, char **argv)
       master_zone = val;
     } else if (ceph_argparse_witharg(args, i, &val, "--period", (char*)NULL)) {
       period_id = val;
+    } else if (ceph_argparse_witharg(args, i, &val, "--epoch", (char*)NULL)) {
+      period_epoch = val;
+    } else if (ceph_argparse_witharg(args, i, &val, "--remote", (char*)NULL)) {
+      remote = val;
     } else if (ceph_argparse_witharg(args, i, &val, "--url", (char*)NULL)) {
       url = val;
     } else if (ceph_argparse_witharg(args, i, &val, "--realm", (char*)NULL)) {
@@ -1604,12 +1632,12 @@ int main(int argc, char **argv)
                          opt_cmd == OPT_ZONE_LIST || opt_cmd == OPT_ZONE_CREATE || opt_cmd == OPT_REALM_CREATE ||
 			 opt_cmd == OPT_PERIOD_PREPARE || opt_cmd == OPT_PERIOD_ACTIVATE ||
 			 opt_cmd == OPT_PERIOD_DELETE || opt_cmd == OPT_PERIOD_GET ||
-			 opt_cmd == OPT_PERIOD_PULL || opt_cmd == OPT_PERIOD_PUSH ||
 			 opt_cmd == OPT_PERIOD_GET_CURRENT || opt_cmd == OPT_PERIOD_LIST ||
 			 opt_cmd == OPT_REALM_DELETE || opt_cmd == OPT_REALM_GET || opt_cmd == OPT_REALM_LIST ||
 			 opt_cmd == OPT_REALM_LIST_PERIODS ||
 			 opt_cmd == OPT_REALM_GET_DEFAULT || opt_cmd == OPT_REALM_REMOVE ||
-			 opt_cmd == OPT_REALM_RENAME || opt_cmd == OPT_REALM_SET_DEFAULT);
+			 opt_cmd == OPT_REALM_RENAME || opt_cmd == OPT_REALM_SET ||
+			 opt_cmd == OPT_REALM_SET_DEFAULT);
 
   if (raw_storage_op) {
     store = RGWStoreManager::get_raw_storage(g_ceph_context);
@@ -1728,60 +1756,6 @@ int main(int argc, char **argv)
 	}
       }
       break;
-    case OPT_PERIOD_PUSH:
-      {
-	req_info info(g_ceph_context, NULL);
-	info.method = "POST";
-	info.request_uri = "/admin/realm/period?";
-	if (!period_id.empty()) {
-	  info.request_uri += "period_id=" + period_id;
-	}
-	if (!period_epoch) {
-	  if (!period_id.empty()) {
-	    info.request_uri =+ "&";
-	  }
-	  info.request_uri += "epoch=" + period_epoch;
-	}
-
-	JSONParser p;
-	int ret = send_to_remote_gateway(url, info,p);
-	if (ret < 0) {
-	  return ret;
-	}
-      }
-      break;
-    case OPT_PERIOD_PULL:
-      {
-	req_info info(g_ceph_context, NULL);
-	info.method = "GET";
-	info.request_uri = "/admin/realm/period?";
-	if (!period_id.empty()) {
-	  info.request_uri += "period_id=" + period_id;
-	}
-	if (!period_epoch) {
-	  if (!period_id.empty()) {
-	    info.request_uri =+ "&";
-	  }
-	  info.request_uri += "epoch=" + period_epoch;
-	}
-	JSONParser p;
-	int ret = send_to_remote_gateway(url, info,p);
-	if (ret < 0) {
-	  return ret;
-	}
-	RGWPeriod period(g_ceph_context, store);
-	try {
-	  decode_json_obj(period, &p);
-	} catch (JSONDecoder::err& e) {
-          cout << "failed to decode JSON input: " << e.message << std::endl;
-	  return -EINVAL;
-	}
-	ret = period.store_info(true);
-	if (ret < 0) {
-	  cerr << "Error storing period " << period.get_id() << ": " << cpp_strerror(ret) << std::endl;
-	}
-      }
-      break;
     case OPT_PERIOD_LIST:
       {
 	list<string> periods;
@@ -1810,6 +1784,9 @@ int main(int argc, char **argv)
 	  cerr << "ERROR: couldn't create realm " << realm_name << ": " << cpp_strerror(-ret) << std::endl;
 	  return ret;
 	}
+	encode_json("realm", realm, formatter);
+	formatter->flush(cout);
+	cout << std::endl;
       }
       break;
     case OPT_REALM_DELETE:
@@ -1939,6 +1916,36 @@ int main(int argc, char **argv)
 	}
       }
       break;
+    case OPT_REALM_SET:
+      {
+	if (realm_id.empty() && realm_name.empty()) {
+	  cerr << "no realm name or id provided" << std::endl;
+	  return -EINVAL;
+	}
+        if (infile.empty()) {
+	  cerr << "no realm input file provided" << std::endl;
+	  return -EINVAL;
+        }
+	RGWRealm realm(realm_id, realm_name);
+	int ret = realm.init(g_ceph_context, store, false);
+	if (ret < 0) {
+	  cerr << "failed to init realm: " << cpp_strerror(-ret) << std::endl;
+	  return -ret;
+	}
+	ret = read_decode_json(infile, realm);
+	if (ret < 0) {
+	  return 1;
+	}
+	ret = realm.update();
+	if (ret < 0) {
+	  cerr << "ERROR: couldn't store realm info: " << cpp_strerror(-ret) << std::endl;
+	  return 1;
+	}
+	encode_json("realm", realm, formatter);
+	formatter->flush(cout);
+      }
+      break;
+
     case OPT_REALM_SET_DEFAULT:
       {
 	RGWRealm realm(realm_id, realm_name);
@@ -1966,6 +1973,10 @@ int main(int argc, char **argv)
 	  cerr << "failed to create zonegroup" << zonegroup_name << ": " << cpp_strerror(-ret) << std::endl;
 	  return -ret;
 	}
+
+	encode_json("zonegroup", zonegroup, formatter);
+	formatter->flush(cout);
+	cout << std::endl;
       }
       break;
     case OPT_ZONEGROUP_DEFAULT:
@@ -2190,6 +2201,10 @@ int main(int argc, char **argv)
 	       << cpp_strerror(-ret) << std::endl;
 	  return ret;
 	}
+
+	encode_json("zone", zone, formatter);
+	formatter->flush(cout);
+	cout << std::endl;
       }
       break;
    case OPT_ZONE_DELETE:
@@ -2511,8 +2526,90 @@ int main(int argc, char **argv)
       cerr << "could not remove key: " << err_msg << std::endl;
       return -ret;
     }
+  case OPT_PERIOD_PUSH:
+    {
+      RGWEnv env;
+      req_info info(g_ceph_context, &env);
+      info.method = "POST";
+      info.request_uri = "/admin/realm/period";
 
-    break;
+      map<string, string> &params = info.args.get_params();
+      if (!period_id.empty())
+        params["period_id"] = period_id;
+      if (!period_epoch.empty())
+        params["epoch"] = period_epoch;
+
+      // load the period
+      RGWPeriod period(g_ceph_context, store, period_id);
+      int ret = period.init();
+      if (ret < 0) {
+        cerr << "period init failed: " << cpp_strerror(-ret) << std::endl;
+        return ret;
+      }
+      // json format into a bufferlist
+      JSONFormatter jf(false);
+      encode_json("period", period, &jf);
+      bufferlist bl;
+      jf.flush(bl);
+
+      JSONParser p;
+      ret = send_to_remote_gateway(url, info, p, bl);
+      if (ret < 0) {
+        cerr << "request failed: " << cpp_strerror(-ret) << std::endl;
+        return ret;
+      }
+    }
+    return 0;
+  case OPT_PERIOD_PULL:
+    {
+      RGWEnv env;
+      req_info info(g_ceph_context, &env);
+      info.method = "GET";
+      info.request_uri = "/admin/realm/period";
+
+      map<string, string> &params = info.args.get_params();
+      if (!period_id.empty())
+        params["period_id"] = period_id;
+      if (!period_epoch.empty())
+        params["epoch"] = period_epoch;
+
+      int ret = 0;
+
+      bufferlist bl;
+      JSONParser p;
+      if (!url.empty()) {
+        if (access_key.empty() || secret_key.empty()) {
+          cerr << "An --access-key and --secret must be provided with --url." << std::endl;
+          return -EINVAL;
+        }
+        RGWAccessKey key;
+        key.id = access_key;
+        key.key = secret_key;
+        ret = send_to_url(url, key, info, p, bl);
+      } else {
+        ret = send_to_remote_gateway(remote, info, p, bl);
+      }
+      if (ret < 0) {
+        cerr << "request failed: " << cpp_strerror(-ret) << std::endl;
+        return ret;
+      }
+      RGWPeriod period(g_ceph_context, store);
+      try {
+        decode_json_obj(period, &p);
+      } catch (JSONDecoder::err& e) {
+        cout << "failed to decode JSON input: " << e.message << std::endl;
+        return -EINVAL;
+      }
+      ret = period.store_info(false);
+      if (ret < 0) {
+        cerr << "Error storing period " << period.get_id() << ": " << cpp_strerror(ret) << std::endl;
+      }
+
+      encode_json("period", period, formatter);
+      formatter->flush(cout);
+      cout << std::endl;
+    }
+    return 0;
   default:
     output_user_info = false;
   }
