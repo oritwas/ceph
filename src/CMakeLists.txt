@@ -519,6 +519,7 @@ target_link_libraries(ceph-dencoder
   cls_replica_log_client
   cls_kvs
   cls_user_client
+  cls_timeindex_client
   ${DENCODER_EXTRALIBS}
   blkid
   udev
