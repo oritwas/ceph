@@ -236,5 +236,7 @@
 #cmakedefine HAVE_GPERFTOOLS_HEAP_PROFILER_H
 #cmakedefine HAVE_GPERFTOOLS_MALLOC_EXTENSION_H
 #cmakedefine HAVE_GPERFTOOLS_PROFILER_H
+/* Defined if curl headers define curl_multi_wait() */
+#cmakedefine HAVE_CURL_MULTI_WAIT 1
 
 #endif /* CONFIG_H */
