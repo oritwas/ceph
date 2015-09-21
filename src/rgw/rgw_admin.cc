@@ -2172,6 +2172,7 @@ int main(int argc, char **argv)
 	  cerr << "failed to list realms: " << cpp_strerror(-ret) << std::endl;
 	  return -ret;
 	}
+
 	for (list<string>::iterator iter = realms.begin(); iter != realms.end(); ++iter)
 	{	 
 	  RGWRealm realm(*iter);
@@ -2181,7 +2182,9 @@ int main(int argc, char **argv)
 	    return -ret;
 	  }
 	  zonegroupmap.update(realm);
+	  zonegroupmap.update(g_ceph_context, store, realm.get_current_period());	  
 	}
+
 
 	list<string> zonegroups;
 	ret = store->list_zonegroups(zonegroups);
