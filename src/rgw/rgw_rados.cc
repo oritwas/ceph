@@ -1082,7 +1082,7 @@ void RGWRegionMap::decode(bufferlist::iterator& bl) {
 }
 
 void RGWZoneGroupMap::encode(bufferlist& bl) const {
-  ENCODE_START(4, 1, bl);
+  ENCODE_START(1, 1, bl);
   ::encode(realms, bl);
   ::encode(periods, bl);
   ::encode(bucket_quota, bl);
@@ -1091,7 +1091,7 @@ void RGWZoneGroupMap::encode(bufferlist& bl) const {
 }
 
 void RGWZoneGroupMap::decode(bufferlist::iterator& bl) {
-  DECODE_START(4, bl);
+  DECODE_START(1, bl);
   ::decode(realms, bl);
   ::decode(periods, bl);
   ::decode(bucket_quota, bl);
@@ -1204,6 +1204,27 @@ int RGWZoneGroupMap::update(CephContext *cct, RGWRados *store,
 
   periods[period_id] = period.get_map();
   
+  return 0;
+}
+
+
+int RGWZoneGroupMap::update_master_zonegroup(const string& period_id,
+					     const string& master_zonegroup)
+{
+  map<string, RGWPeriodMap>::iterator period_iter = periods.find(period_id);
+  if (period_iter == periods.end()) {
+    derr << "ERROR: period " << period_id << " not found" << dendl;
+    return -EINVAL;
+  }
+
+  map<string, RGWZoneGroup>::iterator iter = period_iter->second.zonegroups.find(master_zonegroup);
+  if (iter == period_iter->second.zonegroups.end()) {
+    derr << "ERROR: bad zonegroup map: inconsistent master zonegroup" << dendl;
+    return -EINVAL;
+  }
+
+  period_iter->second.master_zonegroup = master_zonegroup;
+
   return 0;
 }
 
