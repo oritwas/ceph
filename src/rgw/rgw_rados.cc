@@ -544,6 +544,10 @@ int RGWSystemMetaObj::store_info(bool exclusive)
 }
 
 
+const string& RGWRealm::get_predefined_id() {
+  return cct->_conf->rgw_realm;
+}
+
 int RGWRealm::create()
 {
 
