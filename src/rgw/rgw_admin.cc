@@ -178,8 +178,9 @@ void _usage()
   cout << "   --realm=<realm>           realm name\n";
   cout << "   --realm-id=<realm id>     realm id\n";
   cout << "   --realm-new-name=<realm new name>     realm new name\n";
-  cout << "   --zonegroup=<zone>        zonegroup in which radosgw is running\n";
-  cout << "   --zonegroup-new-name=<zone> zonegroup new name\n";
+  cout << "   --zonegroup=<zonegroup>   zonegroup in which radosgw is running\n";
+  cout << "   --rgw-zonegroup=<zonegroup> zonegroup in which radosgw is running\n";
+  cout << "   --zonegroup-new-name=<name> zonegroup new name\n";
   cout << "   --rgw-zone=<zone>         zone in which radosgw is running\n";
   cout << "   --fix                     besides checking bucket index, will also fix it\n";
   cout << "   --check-objects           bucket check: rebuilds bucket index according to\n";
@@ -1660,6 +1661,8 @@ int main(int argc, char **argv)
     } else if (ceph_argparse_witharg(args, i, &val, "--zonegroup-id", (char*)NULL)) {
       zonegroup_id = val;
     } else if (ceph_argparse_witharg(args, i, &val, "--zonegroup", (char*)NULL)) {
+      zonegroup_name = val;
+    } else if (ceph_argparse_witharg(args, i, &val, "--rgw-zonegroup", (char*)NULL)) {
       zonegroup_name = val;
     } else if (ceph_argparse_witharg(args, i, &val, "--zonegroup-new-name", (char*)NULL)) {
       zonegroup_new_name = val;
