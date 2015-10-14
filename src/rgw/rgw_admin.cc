@@ -97,7 +97,7 @@ void _usage()
   cout << "  zonegroup get              show zone group info\n";
   cout << "  zonegroup set              set zone group info (requires infile)\n";
   cout << "  zonegroup rename           rename a zone group\n";
-  cout << "  zonegroups list            list all zone groups set on this cluster\n";
+  cout << "  zonegroup list             list all zone groups set on this cluster\n";
   cout << "  zonegroup-map get          show zonegroup-map\n";
   cout << "  zonegroup-map set          set zonegroup-map (requires infile)\n";
   cout << "  zone add                   add a zone to a zonegroup\n";
