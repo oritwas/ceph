@@ -179,7 +179,6 @@ void _usage()
   cout << "   --realm=<realm>           realm name\n";
   cout << "   --realm-id=<realm id>     realm id\n";
   cout << "   --realm-new-name=<realm new name>     realm new name\n";
-  cout << "   --zonegroup=<zonegroup>   zonegroup in which radosgw is running\n";
   cout << "   --rgw-zonegroup=<zonegroup> zonegroup in which radosgw is running\n";
   cout << "   --zonegroup-new-name=<name> zonegroup new name\n";
   cout << "   --rgw-zone=<zone>         zone in which radosgw is running\n";
@@ -1345,7 +1344,7 @@ int main(int argc, char **argv)
   std::string period_id, period_epoch, remote, url, parent_period;
   std::string master_zonegroup, master_zone;
   std::string realm_name, realm_id, realm_new_name;
-  std::string zone_id, zone_new_name;
+  std::string zone_name, zone_id, zone_new_name;
   std::string zonegroup_name, zonegroup_id, zonegroup_new_name;
   list<string> endpoints;
   std::string master_url;
@@ -1669,10 +1668,6 @@ int main(int argc, char **argv)
       realm_new_name = val;
     } else if (ceph_argparse_witharg(args, i, &val, "--zonegroup-id", (char*)NULL)) {
       zonegroup_id = val;
-    } else if (ceph_argparse_witharg(args, i, &val, "--zonegroup", (char*)NULL)) {
-      zonegroup_name = val;
-    } else if (ceph_argparse_witharg(args, i, &val, "--rgw-zonegroup", (char*)NULL)) {
-      zonegroup_name = val;
     } else if (ceph_argparse_witharg(args, i, &val, "--zonegroup-new-name", (char*)NULL)) {
       zonegroup_new_name = val;
     } else if (ceph_argparse_witharg(args, i, &val, "--zone-id", (char*)NULL)) {
@@ -1755,6 +1750,9 @@ int main(int argc, char **argv)
     cerr << "unrecognized format: " << format << std::endl;
     return usage();
   }
+
+  zone_name = g_conf->rgw_zone;
+  zonegroup_name = g_conf->rgw_zonegroup;
 
   RGWStreamFlusher f(formatter, cout);
 
@@ -2596,7 +2594,6 @@ int main(int argc, char **argv)
       break;
     case OPT_ZONE_ADD:
       {
-        string zone_name = g_conf->rgw_zone;
 	if (zonegroup_id.empty() && zonegroup_name.empty()) {
 	  cerr << "no zonegroup name or id provided" << std::endl;
 	  return -EINVAL;
@@ -2671,7 +2668,6 @@ int main(int argc, char **argv)
 	  }
 	}
 
-        string zone_name = g_conf->rgw_zone;
 	RGWZoneParams zone(zone_name);
 	ret = zone.init(g_ceph_context, store, false);
 	if (ret < 0) {
@@ -2728,7 +2724,6 @@ int main(int argc, char **argv)
 	if (ret < 0) {
 	  cerr << "WARNING: failed to initialize zonegroup " << zonegroup_name << std::endl;
 	}
-        string zone_name = g_conf->rgw_zone;
 	if (zone_id.empty() && zone_name.empty()) {
 	  cerr << "no zone name or id provided" << std::endl;
 	  return -EINVAL;
@@ -2758,7 +2753,6 @@ int main(int argc, char **argv)
 	if (ret < 0) {
 	  cerr << "WARNING: failed to initialize zonegroup " << zonegroup_name << std::endl;
 	}
-        string zone_name = g_conf->rgw_zone;
 	if (zone_id.empty() && zone_name.empty()) {
 	  cerr << "no zone name or id provided" << std::endl;
 	  return -EINVAL;
@@ -2804,7 +2798,6 @@ int main(int argc, char **argv)
       break;
     case OPT_ZONE_SET:
       {
-        string zone_name = g_conf->rgw_zone;
 	RGWZoneParams zone(zone_name);
 	int ret = zone.init(g_ceph_context, store, false);
 	if (ret < 0) {
@@ -2859,7 +2852,6 @@ int main(int argc, char **argv)
       break;
     case OPT_ZONE_MODIFY:
       {
-        string zone_name = g_conf->rgw_zone;
 	if (zone_id.empty() && zone_name.empty()) {
 	  cerr << "no zone name or id provided" << std::endl;
 	  return -EINVAL;
@@ -2924,7 +2916,6 @@ int main(int argc, char **argv)
       break;
     case OPT_ZONE_RENAME:
       {
-        string zone_name = g_conf->rgw_zone;
 	RGWZoneGroup zonegroup(zonegroup_id, zonegroup_name);
 	int ret;
 	if (!zonegroup_id.empty() || !zonegroup_name.empty()) {
