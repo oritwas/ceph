@@ -91,7 +91,7 @@ void _usage()
   cout << "  realm remove               remove a zonegroup from the realm\n";
   cout << "  realm rename               rename a realm\n";
   cout << "  realm set                  set realm info (requires infile)\n";
-  cout << "  realm set-default          set realm as default\n";
+  cout << "  realm default              set realm as default\n";
   cout << "  zonegroup create           create a new zone group info\n";
   cout << "  zonegroup default          set default zone group\n";
   cout << "  zonegroup get              show zone group info\n";
@@ -337,7 +337,7 @@ enum {
   OPT_REALM_REMOVE,
   OPT_REALM_RENAME,
   OPT_REALM_SET,
-  OPT_REALM_SET_DEFAULT,
+  OPT_REALM_DEFAULT,
   OPT_PERIOD_PREPARE,
   OPT_PERIOD_DELETE,
   OPT_PERIOD_GET,
@@ -541,8 +541,8 @@ static int get_cmd(const char *cmd, const char *prev_cmd, const char *prev_prev_
       return OPT_REALM_RENAME;
     if (strcmp(cmd, "set") == 0)
       return OPT_REALM_SET;
-    if (strcmp(cmd, "set-default") == 0)
-      return OPT_REALM_SET_DEFAULT;
+    if (strcmp(cmd, "default") == 0)
+      return OPT_REALM_DEFAULT;
   } else if (strcmp(prev_cmd, "zonegroup") == 0) {
     if (strcmp(cmd, "create")== 0)
       return OPT_ZONEGROUP_CREATE;
@@ -1773,7 +1773,7 @@ int main(int argc, char **argv)
 			 opt_cmd == OPT_REALM_LIST_PERIODS ||
 			 opt_cmd == OPT_REALM_GET_DEFAULT || opt_cmd == OPT_REALM_REMOVE ||
 			 opt_cmd == OPT_REALM_RENAME || opt_cmd == OPT_REALM_SET ||
-			 opt_cmd == OPT_REALM_SET_DEFAULT);
+			 opt_cmd == OPT_REALM_DEFAULT);
 
   if (raw_storage_op) {
     store = RGWStoreManager::get_raw_storage(g_ceph_context);
@@ -2176,7 +2176,7 @@ int main(int argc, char **argv)
       }
       break;
 
-    case OPT_REALM_SET_DEFAULT:
+    case OPT_REALM_DEFAULT:
       {
 	RGWRealm realm(realm_id, realm_name);
 	int ret = realm.init(g_ceph_context, store);
