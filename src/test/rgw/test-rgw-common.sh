@@ -129,3 +129,54 @@ function call_rgw_admin {
   shift
   x $(rgw_admin $c) "$@"
 }
+
+function init_region {
+  [ $# -ne 2 ] && echo "init_region() needs 2 params" && exit 1
+
+  id=$1
+  region=$2
+  default=$3
+
+  x $(radosgw-admin $id) region set < $region.json
+  if [$default .eq. $region ]; than
+     x $(radosgw-admin $id) region default --rgw-region=$region
+  fi
+  x $(radosgw-admin $id) regionmap update
+}
+
+
+function init_old_zone {
+  [ $# -ne 2 ] && echo "init_old_zone() needs 2 params" && exit 1
+
+  id=$1
+  zone=$2
+
+  x $(radosgw-admin $id) zone set --rgw-zone=$zone < $zone.json
+  x $(radosgw-admin $id) regionmap update
+
+  x $(rgw $id $port) --rgw-zone=$zone
+}
+
+function init_regions {
+  [ $# -ne 2 ] && echo "init_region() needs 2 params" && exit 1
+
+  id=$1
+  regions=$2
+  default=$3
+
+  for r in $regions; do
+      init_region $id $r $default
+  done
+}
+
+
+function init_old_zones {
+  [ $# -ne 2 ] && echo "init_region() needs 2 params" && exit 1
+
+  id=$1
+  zones=$2
+
+  for z in $zone; do
+      init_old_zone $id $z
+  done
+}
