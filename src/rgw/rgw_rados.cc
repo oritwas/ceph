@@ -8832,121 +8832,144 @@ int RGWRados::SystemObject::Read::stat(RGWObjVersionTracker *objv_tracker)
 
 int RGWRados::Bucket::UpdateIndex::prepare(RGWModifyOp op)
 {
-  if (blind) {
+  switch(type) {
+  case RGWBIType_Indexless:
     return 0;
-  }
-  RGWRados *store = target->get_store();
-  BucketShard *bs;
-  int ret = get_bucket_shard(&bs);
-  if (ret < 0) {
-    ldout(store->ctx(), 5) << "failed to get BucketShard object: ret=" << ret << dendl;
+  case RGWBIType_Lazy:
+    RGWRados *store = target->get_store();
+    BucketShard *bs;
+    int ret = get_bucket_shard(&bs);
+    if (ret < 0) {
+      ldout(store->ctx(), 5) << "failed to get BucketShard object: ret=" << ret << dendl;
+      return ret;
+    }
+
+    if (obj_state && obj_state->write_tag.length()) {
+      optag = string(obj_state->write_tag.c_str(), obj_state->write_tag.length());
+    } else {
+      if (optag.empty()) {
+	append_rand_alpha(store->ctx(), optag, optag, 32);
+      }
+    }
+    ret = store->cls_obj_prepare_op(*bs, op, optag, obj, bilog_flags);    
+  default:
+    RGWRados *store = target->get_store();
+    BucketShard *bs;
+    int ret = get_bucket_shard(&bs);
+    if (ret < 0) {
+      ldout(store->ctx(), 5) << "failed to get BucketShard object: ret=" << ret << dendl;
+      return ret;
+    }
+
+    if (obj_state && obj_state->write_tag.length()) {
+      optag = string(obj_state->write_tag.c_str(), obj_state->write_tag.length());
+    } else {
+      if (optag.empty()) {
+	append_rand_alpha(store->ctx(), optag, optag, 32);
+      }
+    }
+    ret = store->cls_obj_prepare_op(*bs, op, optag, obj, bilog_flags);
     return ret;
   }
-
-  if (obj_state && obj_state->write_tag.length()) {
-    optag = string(obj_state->write_tag.c_str(), obj_state->write_tag.length());
-  } else {
-    if (optag.empty()) {
-      append_rand_alpha(store->ctx(), optag, optag, 32);
-    }
-  }
-
-  return store->cls_obj_prepare_op(*bs, op, optag, obj, bilog_flags);
 }
 
 int RGWRados::Bucket::UpdateIndex::complete(int64_t poolid, uint64_t epoch, uint64_t size,
                                     ceph::real_time& ut, string& etag, string& content_type, bufferlist *acl_bl, RGWObjCategory category,
                                     list<rgw_obj_key> *remove_objs)
 {
-  if (blind) {
+  switch(type) {
+  case RGWBIType_Indexless:
     return 0;
-  }
-  RGWRados *store = target->get_store();
-  BucketShard *bs;
-  int ret = get_bucket_shard(&bs);
-  if (ret < 0) {
-    ldout(store->ctx(), 5) << "failed to get BucketShard object: ret=" << ret << dendl;
+  default:
+    RGWRados *store = target->get_store();
+    BucketShard *bs;
+    int ret = get_bucket_shard(&bs);
+    if (ret < 0) {
+      ldout(store->ctx(), 5) << "failed to get BucketShard object: ret=" << ret << dendl;
+      return ret;
+    }
+
+    RGWObjEnt ent;
+    obj.get_index_key(&ent.key);
+    ent.size = size;
+    ent.mtime = ut;
+    ent.etag = etag;
+    ACLOwner owner;
+    if (acl_bl && acl_bl->length()) {
+      int ret = store->decode_policy(*acl_bl, &owner);
+      if (ret < 0) {
+	ldout(store->ctx(), 0) << "WARNING: could not decode policy ret=" << ret << dendl;
+      }
+    }
+    ent.owner = owner.get_id();
+    ent.owner_display_name = owner.get_display_name();
+    ent.content_type = content_type;
+
+    ret = store->cls_obj_complete_add(*bs, optag, poolid, epoch, ent, category, remove_objs, bilog_flags);
+
+    int r = store->data_log->add_entry(bs->bucket, bs->shard_id);
+    if (r < 0) {
+      lderr(store->ctx()) << "ERROR: failed writing data log" << dendl;
+    }
     return ret;
   }
-
-  RGWObjEnt ent;
-  obj.get_index_key(&ent.key);
-  ent.size = size;
-  ent.mtime = ut;
-  ent.etag = etag;
-  ACLOwner owner;
-  if (acl_bl && acl_bl->length()) {
-    int ret = store->decode_policy(*acl_bl, &owner);
-    if (ret < 0) {
-      ldout(store->ctx(), 0) << "WARNING: could not decode policy ret=" << ret << dendl;
-    }
-  }
-  ent.owner = owner.get_id();
-  ent.owner_display_name = owner.get_display_name();
-  ent.content_type = content_type;
-
-  ret = store->cls_obj_complete_add(*bs, optag, poolid, epoch, ent, category, remove_objs, bilog_flags);
-
-  int r = store->data_log->add_entry(bs->bucket, bs->shard_id);
-  if (r < 0) {
-    lderr(store->ctx()) << "ERROR: failed writing data log" << dendl;
-  }
-
-  return ret;
 }
 
 int RGWRados::Bucket::UpdateIndex::complete_del(int64_t poolid, uint64_t epoch,
                                                 real_time& removed_mtime,
                                                 list<rgw_obj_key> *remove_objs)
 {
-  if (blind) {
+  switch(type) {
+  case RGWBIType_Indexless:
     return 0;
-  }
-  RGWRados *store = target->get_store();
-  BucketShard *bs;
-  int ret = get_bucket_shard(&bs);
-  if (ret < 0) {
-    ldout(store->ctx(), 5) << "failed to get BucketShard object: ret=" << ret << dendl;
+  default:
+    RGWRados *store = target->get_store();
+    BucketShard *bs;
+    int ret = get_bucket_shard(&bs);
+    if (ret < 0) {
+      ldout(store->ctx(), 5) << "failed to get BucketShard object: ret=" << ret << dendl;
+      return ret;
+    }
+
+    ret = store->cls_obj_complete_del(*bs, optag, poolid, epoch, obj, removed_mtime, remove_objs, bilog_flags);
+
+    int r = store->data_log->add_entry(bs->bucket, bs->shard_id);
+    if (r < 0) {
+      lderr(store->ctx()) << "ERROR: failed writing data log" << dendl;
+    }
     return ret;
   }
-
-  ret = store->cls_obj_complete_del(*bs, optag, poolid, epoch, obj, removed_mtime, remove_objs, bilog_flags);
-
-  int r = store->data_log->add_entry(bs->bucket, bs->shard_id);
-  if (r < 0) {
-    lderr(store->ctx()) << "ERROR: failed writing data log" << dendl;
-  }
-
-  return ret;
 }
 
 
 int RGWRados::Bucket::UpdateIndex::cancel()
 {
-  if (blind) {
+  switch(type) {
+  case RGWBIType_Indexless:
     return 0;
-  }
-  RGWRados *store = target->get_store();
-  BucketShard *bs;
-  int ret = get_bucket_shard(&bs);
-  if (ret < 0) {
-    ldout(store->ctx(), 5) << "failed to get BucketShard object: ret=" << ret << dendl;
+  default:
+    RGWRados *store = target->get_store();
+    BucketShard *bs;
+    int ret = get_bucket_shard(&bs);
+    if (ret < 0) {
+      ldout(store->ctx(), 5) << "failed to get BucketShard object: ret=" << ret << dendl;
+      return ret;
+    }
+
+    ret = store->cls_obj_complete_cancel(*bs, optag, obj, bilog_flags);
+
+    /*
+     * need to update data log anyhow, so that whoever follows needs to update its internal markers
+     * for following the specific bucket shard log. Otherwise they end up staying behind, and users
+     * have no way to tell that they're all caught up
+     */
+    int r = store->data_log->add_entry(bs->bucket, bs->shard_id);
+    if (r < 0) {
+      lderr(store->ctx()) << "ERROR: failed writing data log" << dendl;
+    }
+
     return ret;
   }
-
-  ret = store->cls_obj_complete_cancel(*bs, optag, obj, bilog_flags);
-
-  /*
-   * need to update data log anyhow, so that whoever follows needs to update its internal markers
-   * for following the specific bucket shard log. Otherwise they end up staying behind, and users
-   * have no way to tell that they're all caught up
-   */
-  int r = store->data_log->add_entry(bs->bucket, bs->shard_id);
-  if (r < 0) {
-    lderr(store->ctx()) << "ERROR: failed writing data log" << dendl;
-  }
-
-  return ret;
 }
 
 int RGWRados::Object::Read::read(int64_t ofs, int64_t end, bufferlist& bl)
@@ -11317,6 +11340,16 @@ int RGWRados::cls_rgw_init_index(librados::IoCtx& index_ctx, librados::ObjectWri
   bufferlist in;
   cls_rgw_bucket_init(op);
   return index_ctx.operate(oid, &op);
+}
+
+int RGWRados::cls_obj_journal_op(BucketShard& bs, RGWModifyOp op, string& tag,
+                                 rgw_obj& obj, uint16_t bilog_flags)
+{
+  ObjectWriteOperation o;
+  cls_rgw_obj_key key(obj.get_index_key_name(), obj.get_instance());
+  cls_rgw_bucket_journal_op(o, op, tag, key, obj.get_loc(), get_zone().log_data, bilog_flags);
+  int r = bs.index_ctx.operate(bs.bucket_obj, &o);
+  return r;
 }
 
 int RGWRados::cls_obj_prepare_op(BucketShard& bs, RGWModifyOp op, string& tag,

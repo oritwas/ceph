@@ -304,6 +304,10 @@ public:
     CLSRGWConcurrentIO(ioc, _bucket_objs, _max_aio), tag_timeout(_tag_timeout) {}
 };
 
+void cls_rgw_bucket_journal_op(librados::ObjectWriteOperation& o, RGWModifyOp op, string& tag,
+                               const cls_rgw_obj_key& key, const string& locator, bool log_op,
+                               uint16_t bilog_op);
+
 void cls_rgw_bucket_prepare_op(librados::ObjectWriteOperation& o, RGWModifyOp op, string& tag,
                                const cls_rgw_obj_key& key, const string& locator, bool log_op,
                                uint16_t bilog_op);

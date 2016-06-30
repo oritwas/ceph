@@ -138,6 +138,22 @@ int CLSRGWIssueSetTagTimeout::issue_op(int shard_id, const string& oid)
   return issue_bucket_set_tag_timeout_op(io_ctx, oid, tag_timeout, &manager);
 }
 
+void cls_rgw_journal_prepare_op(ObjectWriteOperation& o, RGWModifyOp op, string& tag,
+				const cls_rgw_obj_key& key, const string& locator, bool log_op,
+				uint16_t bilog_flags)
+{
+  struct rgw_cls_obj_prepare_op call;
+  call.op = op;
+  call.tag = tag;
+  call.key = key;
+  call.locator = locator;
+  call.log_op = log_op;
+  call.bilog_flags = bilog_flags;
+  bufferlist in;
+  ::encode(call, in);
+  o.exec("rgw", "bucket_journal_op", in);
+}
+
 void cls_rgw_bucket_prepare_op(ObjectWriteOperation& o, RGWModifyOp op, string& tag,
                                const cls_rgw_obj_key& key, const string& locator, bool log_op,
                                uint16_t bilog_flags)

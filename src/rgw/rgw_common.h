@@ -896,6 +896,7 @@ enum RGWBucketFlags {
 enum RGWBucketIndexType {
   RGWBIType_Normal = 0,
   RGWBIType_Indexless = 1,
+  RGWBIType_Lazy = 2,
 };
 
 struct RGWBucketInfo
