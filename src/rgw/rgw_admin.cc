@@ -74,6 +74,7 @@ void _usage()
   cout << "  bucket rm                  remove bucket\n";
   cout << "  bucket check               check bucket index\n";
   cout << "  bucket reshard             reshard bucket\n";
+  cout << "  bucket online-reshard      online reshard bucket\n";
   cout << "  bi get                     retrieve bucket index object entries\n";
   cout << "  bi put                     store bucket index object entries\n";
   cout << "  bi list                    list raw bucket index entries\n";
@@ -306,6 +307,7 @@ enum {
   OPT_BUCKET_RM,
   OPT_BUCKET_REWRITE,
   OPT_BUCKET_RESHARD,
+  OPT_BUCKET_ONLINE_RESHARD,
   OPT_POLICY,
   OPT_POOL_ADD,
   OPT_POOL_RM,
@@ -510,6 +512,8 @@ static int get_cmd(const char *cmd, const char *prev_cmd, const char *prev_prev_
       return OPT_BUCKET_REWRITE;
     if (strcmp(cmd, "reshard") == 0)
       return OPT_BUCKET_RESHARD;
+    if (strcmp(cmd, "online-reshard") == 0)
+      return OPT_BUCKET_ONLINE_RESHARD;
     if (strcmp(cmd, "check") == 0)
       return OPT_BUCKET_CHECK;
     if (strcmp(cmd, "sync") == 0) {
@@ -2194,7 +2198,8 @@ int reshard_bucket(RGWRados *store,
 		   int yes_i_really_mean_it,
 		   int max_entries,
 		   RGWBucketAdminOpState& bucket_op,
-		   bool verbose)
+		   bool verbose,
+		   bool online = false)
 {
 
   if (bucket_name.empty()) {
@@ -5099,6 +5104,22 @@ next:
 			  bucket_op,
 			  verbose);
     
+  }
+
+  if (opt_cmd == OPT_BUCKET_ONLINE_RESHARD) {
+
+    return reshard_bucket(store,
+			  formatter,
+			  bucket_name,
+			  tenant,
+			  bucket_id,
+			  num_shards_specified,
+			  num_shards,
+			  yes_i_really_mean_it,
+			  max_entries,
+			  bucket_op,
+			  verbose,
+			  true);
   }
 
   if (opt_cmd == OPT_OBJECT_UNLINK) {
