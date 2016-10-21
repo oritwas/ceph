@@ -2574,16 +2574,18 @@ int RGWPutObjProcessor_Atomic::do_complete(string& etag, real_time *mtime, real_
   return 0;
 }
 
-int RGWRados::watch(const string& oid, uint64_t *watch_handle, librados::WatchCtx2 *ctx) {
-  int r = control_pool_ctx.watch2(oid, watch_handle, ctx);
+int RGWRados::watch(librados::IoCtx& pool_ctx,
+		    const string& oid, uint64_t *watch_handle, librados::WatchCtx2 *ctx) {
+  int r = pool_ctx.watch2(oid, watch_handle, ctx);
   if (r < 0)
     return r;
   return 0;
 }
 
-int RGWRados::unwatch(uint64_t watch_handle)
+int RGWRados::unwatch(librados::IoCtx& pool_ctx,
+		      uint64_t watch_handle)
 {
-  int r = control_pool_ctx.unwatch2(watch_handle);
+  int r = pool_ctx.unwatch2(watch_handle);
   if (r < 0) {
     ldout(cct, 0) << "ERROR: rados->unwatch2() returned r=" << r << dendl;
     return r;
@@ -2632,7 +2634,7 @@ void RGWWatcher::handle_notify(uint64_t notify_id,
   rados->watch_cb(notify_id, cookie, notifier_id, bl);
 
   bufferlist reply_bl; // empty reply payload
-  rados->control_pool_ctx.notify_ack(oid, notify_id, cookie, reply_bl);
+  pool_ctx.notify_ack(oid, notify_id, cookie, reply_bl);
 }
 
 void RGWWatcher::handle_error(uint64_t cookie, int err) {
@@ -2656,7 +2658,7 @@ void RGWWatcher::reinit() {
 }
 
 int RGWWatcher::unregister_watch() {
-  int r = rados->unwatch(watch_handle);
+  int r = rados->unwatch(pool_ctx, watch_handle);
   if (r < 0) {
     return r;
   }
@@ -2665,7 +2667,7 @@ int RGWWatcher::unregister_watch() {
 }
 
 int RGWWatcher::register_watch() {
-  int r = rados->watch(oid, &watch_handle, this);
+  int r = rados->watch(pool_ctx, oid, &watch_handle, this);
   if (r < 0) {
     return r;
   }
@@ -4266,7 +4268,7 @@ int RGWRados::init_watch()
     if (r < 0 && r != -EEXIST)
       return r;
 
-    RGWWatcher *watcher = new RGWWatcher(this, i, notify_oid);
+    RGWWatcher *watcher = new RGWWatcher(this, i, notify_oid, control_pool_ctx);
     watchers[i] = watcher;
 
     r = watcher->register_watch();
@@ -7854,7 +7856,6 @@ int RGWRados::open_bucket_index(rgw_bucket& bucket, librados::IoCtx& index_ctx,
   int ret = open_bucket_index(bucket, index_ctx, oids, shard_id, bucket_instance_ids);
   if (ret < 0)
     return ret;
-
   map<int, string>::const_iterator iter = oids.begin();
   for (; iter != oids.end(); ++iter) {
     bucket_objs[iter->first] = T();

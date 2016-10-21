@@ -2856,8 +2856,9 @@ public:
   virtual int update_containers_stats(map<string, RGWBucketEnt>& m);
   virtual int append_async(rgw_obj& obj, size_t size, bufferlist& bl);
 
-  int watch(const string& oid, uint64_t *watch_handle, librados::WatchCtx2 *ctx);
-  int unwatch(uint64_t watch_handle);
+  int watch(librados::IoCtx& pool_ctx,
+	    const string& oid, uint64_t *watch_handle, librados::WatchCtx2 *ctx);
+  int unwatch(librados::IoCtx& pool_ctx, uint64_t watch_handle);
   void add_watcher(int i);
   void remove_watcher(int i);
   virtual bool need_watch_notify() { return false; }
@@ -3383,6 +3384,7 @@ class RGWWatcher : public librados::WatchCtx2 {
   int index;
   string oid;
   uint64_t watch_handle;
+  librados::IoCtx pool_ctx;
 
   class C_ReinitWatch : public Context {
     RGWWatcher *watcher;
@@ -3393,7 +3395,8 @@ class RGWWatcher : public librados::WatchCtx2 {
       }
   };
 public:
-  RGWWatcher(RGWRados *r, int i, const string& o) : rados(r), index(i), oid(o), watch_handle(0) {}
+  RGWWatcher(RGWRados *r, int i, const string& o,
+	     librados::IoCtx& p) : rados(r), index(i), oid(o), watch_handle(0), pool_ctx(p) {}
   void handle_notify(uint64_t notify_id,
 		     uint64_t cookie,
 		     uint64_t notifier_id,
