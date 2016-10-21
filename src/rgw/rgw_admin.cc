@@ -2092,6 +2092,26 @@ public:
     }
     return 0;
   }
+
+  int write_entry(rgw_cls_bi_entry& entry) {
+
+    librados::ObjectWriteOperation op;
+    store->bi_put(op, bs, entry);    
+    cls_rgw_bucket_update_stats(op, false, stats);
+
+    librados::AioCompletion *c;
+    int ret = get_completion(&c);
+    if (ret < 0) {
+      return ret;
+    }
+    ret = bs.index_ctx.aio_operate(bs.bucket_obj, c, &op);
+    if (ret < 0) {
+      std::cerr << "ERROR: failed to store entries in target bucket shard (bs=" << bs.bucket << "/" << bs.shard_id << ") error=" << cpp_strerror(-ret) << std::endl;
+      return ret;
+    }
+    return 0;
+  }
+
   int flush() {
     if (entries.size() == 0) {
       return 0;
@@ -2166,6 +2186,16 @@ public:
     return 0;
   }
 
+  int write_entry(int shard_index,
+		  rgw_cls_bi_entry& entry) {
+    int ret = target_shards[shard_index]->write_entry(entry);
+    if (ret < 0) {
+      cerr << "ERROR: target_shards.write_entry(" << entry.idx << ") returned error: " << cpp_strerror(-ret) << std::endl;
+      return ret;
+    }
+    return 0;
+  }
+
   int finish() {
     int ret = 0;
     for (auto& shard : target_shards) {
@@ -2186,6 +2216,91 @@ public:
     target_shards.clear();
     return ret;
   }
+};
+
+
+int reshard_add_entry(RGWRados *store,
+		      rgw_cls_bi_entry& entry,
+		      RGWBucketInfo& new_bucket_info,
+		      BucketReshardManager& target_shards_mgr)
+{
+  int target_shard_id;
+  cls_rgw_obj_key cls_key;
+  uint8_t category;
+  rgw_bucket_category_stats stats;
+  bool account = entry.get_info(&cls_key, &category, &stats);
+  rgw_obj_key key(cls_key);
+  rgw_obj obj(new_bucket_info.bucket, key);
+  int ret = store->get_target_shard_id(new_bucket_info, obj.get_hash_object(), &target_shard_id);
+  if (ret < 0) {
+    cerr << "ERROR: get_target_shard_id() returned ret=" << ret << std::endl;
+    return ret;
+  }
+
+  int shard_index = (target_shard_id > 0 ? target_shard_id : 0);
+
+  return target_shards_mgr.add_entry(shard_index, entry, account, category, stats);
+}
+
+int reshard_write_entry(RGWRados *store,
+			rgw_cls_bi_entry& entry,
+			RGWBucketInfo& new_bucket_info,
+			BucketReshardManager& target_shards_mgr)
+{
+  int target_shard_id;
+  cls_rgw_obj_key cls_key;
+  rgw_obj_key key(cls_key);
+  rgw_obj obj(new_bucket_info.bucket, key);
+  int ret = store->get_target_shard_id(new_bucket_info, obj.get_hash_object(), &target_shard_id);
+  if (ret < 0) {
+    cerr << "ERROR: get_target_shard_id() returned ret=" << ret << std::endl;
+    return ret;
+  }
+
+  int shard_index = (target_shard_id > 0 ? target_shard_id : 0);
+
+  return target_shards_mgr.write_entry(shard_index, entry);
+}
+
+class RGWBIWatcher : public RGWWatcher
+{
+  RGWBucketInfo new_bucket_info;
+  BucketReshardManager& target_shards_mgr;
+public:
+  RGWBIWatcher(RGWRados *_store,
+	       int num_shard,
+	       const string& oid,
+	       librados::IoCtx& pool,
+	       const RGWBucketInfo& info,
+	       BucketReshardManager& mgr): RGWWatcher(_store, num_shard, oid, pool),
+					   new_bucket_info(info),
+					   target_shards_mgr(mgr)
+  {}
+
+  void handle_notify(uint64_t notify_id,
+		     uint64_t cookie,
+		     uint64_t notifier_id,
+		     bufferlist& bl)
+  {
+    rgw_cls_bi_entry entry;
+    bufferlist::iterator iter = bl.begin();
+    try {
+      ::decode(entry, iter);
+    } catch (buffer::error& err) {
+      cout << "Failed to decode " << std::endl;
+      throw err;
+    }
+
+    int ret = reshard_write_entry(store,
+				  entry,
+				  new_bucket_info,
+				  target_shards_mgr);
+    if (ret < 0){
+      cout << "handle_notify: error write entry: " << ret << std::endl;
+      throw;
+    }
+  }
+
 };
 
 int reshard_bucket(RGWRados *store,
@@ -2217,6 +2332,7 @@ int reshard_bucket(RGWRados *store,
     return EINVAL;
   }
 
+  
   rgw_bucket bucket;
   RGWBucketInfo bucket_info;
   map<string, bufferlist> attrs;
@@ -2233,7 +2349,7 @@ int reshard_bucket(RGWRados *store,
 	 << "do you really mean it? (requires --yes-i-really-mean-it)" << std::endl;
     return EINVAL;
   }
-
+  
   RGWBucketInfo new_bucket_info(bucket_info);
   store->create_bucket_id(&new_bucket_info.bucket.bucket_id);
   new_bucket_info.bucket.oid.clear();
@@ -2263,10 +2379,32 @@ int reshard_bucket(RGWRados *store,
     max_entries = 1000;
   }
 
+  cout << " put bucket instance info " << std::endl;
   int num_target_shards = (new_bucket_info.num_shards > 0 ? new_bucket_info.num_shards : 1);
 
   BucketReshardManager target_shards_mgr(store, new_bucket_info, num_target_shards);
 
+  map<int, RGWBIWatcher*> watchers;
+  if (online) {
+    librados::IoCtx index_ctx;
+    map<int, string> bucket_index_oids;
+    ret = store->get_bucket_index_oids(bucket_info.bucket, index_ctx, bucket_index_oids);
+    if (ret < 0) {
+      cout << "ERROR: failed to open bucket index: " << cpp_strerror(-ret) << std::endl;
+      return ret;
+    }
+	  
+    for (int i=0; i < num_source_shards; ++i) {
+      watchers[i] = new RGWBIWatcher(store, i, bucket_index_oids[i], index_ctx, bucket_info,
+				     target_shards_mgr);
+      cout << " regiser watch  " << i << " oid " << bucket_index_oids[i] << std::endl;
+      ret = watchers[i]->register_watch();
+      if (ret < 0) {
+	cout << "ERROR: failed to register watch " << bucket_index_oids[i] << ": " << cpp_strerror(-ret) << std::endl;
+	return ret;
+      }
+    }
+  }
   if (verbose) {
     formatter->open_array_section("entries");
   }
@@ -2303,22 +2441,10 @@ int reshard_bucket(RGWRados *store,
 
 	marker = entry.idx;
 
-	int target_shard_id;
-	cls_rgw_obj_key cls_key;
-	uint8_t category;
-	rgw_bucket_category_stats stats;
-	bool account = entry.get_info(&cls_key, &category, &stats);
-	rgw_obj_key key(cls_key);
-	rgw_obj obj(new_bucket_info.bucket, key);
-	int ret = store->get_target_shard_id(new_bucket_info, obj.get_hash_object(), &target_shard_id);
-	if (ret < 0) {
-	  cerr << "ERROR: get_target_shard_id() returned ret=" << ret << std::endl;
-	  return ret;
-	}
-
-	int shard_index = (target_shard_id > 0 ? target_shard_id : 0);
-
-	ret = target_shards_mgr.add_entry(shard_index, entry, account, category, stats);
+	ret = reshard_add_entry(store,
+				entry,
+				new_bucket_info,
+				target_shards_mgr);
 	if (ret < 0) {
 	  return ret;
 	}

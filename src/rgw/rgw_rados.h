@@ -3098,7 +3098,12 @@ public:
 
   int delete_obj_aio(rgw_obj& obj, rgw_bucket& bucket, RGWBucketInfo& info, RGWObjState *astate,
                      list<librados::AioCompletion *>& handles, bool keep_index_consistent);
- private:
+  int get_bucket_index_oids(rgw_bucket& bucket, librados::IoCtx& index_ctx,
+			    map<int, string>& bucket_index_oids)
+  {
+    return open_bucket_index(bucket, index_ctx, bucket_index_oids);
+  }
+private:
   /**
    * This is a helper method, it generates a list of bucket index objects with the given
    * bucket base oid and number of shards.
@@ -3397,10 +3402,10 @@ class RGWWatcher : public librados::WatchCtx2 {
 public:
   RGWWatcher(RGWRados *r, int i, const string& o,
 	     librados::IoCtx& p) : rados(r), index(i), oid(o), watch_handle(0), pool_ctx(p) {}
-  void handle_notify(uint64_t notify_id,
-		     uint64_t cookie,
-		     uint64_t notifier_id,
-		     bufferlist& bl);
+  virtual void handle_notify(uint64_t notify_id,
+			     uint64_t cookie,
+			     uint64_t notifier_id,
+			     bufferlist& bl);
   void handle_error(uint64_t cookie, int err);
 
   void reinit();
