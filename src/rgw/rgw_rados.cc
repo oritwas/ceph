@@ -2620,74 +2620,58 @@ void RGWRados::remove_watcher(int i)
   }
 }
 
-class RGWWatcher : public librados::WatchCtx2 {
-  RGWRados *rados;
-  int index;
-  string oid;
-  uint64_t watch_handle;
+void RGWWatcher::handle_notify(uint64_t notify_id,
+			       uint64_t cookie,
+			       uint64_t notifier_id,
+			       bufferlist& bl) {
+  ldout(rados->ctx(), 10) << "RGWWatcher::handle_notify() "
+			  << " notify_id " << notify_id
+			  << " cookie " << cookie
+			  << " notifier " << notifier_id
+			  << " bl.length()=" << bl.length() << dendl;
+  rados->watch_cb(notify_id, cookie, notifier_id, bl);
 
-  class C_ReinitWatch : public Context {
-    RGWWatcher *watcher;
-    public:
-      explicit C_ReinitWatch(RGWWatcher *_watcher) : watcher(_watcher) {}
-      void finish(int r) {
-        watcher->reinit();
-      }
-  };
-public:
-  RGWWatcher(RGWRados *r, int i, const string& o) : rados(r), index(i), oid(o), watch_handle(0) {}
-  void handle_notify(uint64_t notify_id,
-		     uint64_t cookie,
-		     uint64_t notifier_id,
-		     bufferlist& bl) {
-    ldout(rados->ctx(), 10) << "RGWWatcher::handle_notify() "
-			    << " notify_id " << notify_id
-			    << " cookie " << cookie
-			    << " notifier " << notifier_id
-			    << " bl.length()=" << bl.length() << dendl;
-    rados->watch_cb(notify_id, cookie, notifier_id, bl);
+  bufferlist reply_bl; // empty reply payload
+  rados->control_pool_ctx.notify_ack(oid, notify_id, cookie, reply_bl);
+}
 
-    bufferlist reply_bl; // empty reply payload
-    rados->control_pool_ctx.notify_ack(oid, notify_id, cookie, reply_bl);
-  }
-  void handle_error(uint64_t cookie, int err) {
-    lderr(rados->ctx()) << "RGWWatcher::handle_error cookie " << cookie
-			<< " err " << cpp_strerror(err) << dendl;
-    rados->remove_watcher(index);
-    rados->schedule_context(new C_ReinitWatch(this));
-  }
+void RGWWatcher::handle_error(uint64_t cookie, int err) {
+  lderr(rados->ctx()) << "RGWWatcher::handle_error cookie " << cookie
+		      << " err " << cpp_strerror(err) << dendl;
+  rados->remove_watcher(index);
+  rados->schedule_context(new C_ReinitWatch(this));
+}
 
-  void reinit() {
-    int ret = unregister_watch();
-    if (ret < 0) {
-      ldout(rados->ctx(), 0) << "ERROR: unregister_watch() returned ret=" << ret << dendl;
-      return;
-    }
-    ret = register_watch();
-    if (ret < 0) {
-      ldout(rados->ctx(), 0) << "ERROR: register_watch() returned ret=" << ret << dendl;
-      return;
-    }
+void RGWWatcher::reinit() {
+  int ret = unregister_watch();
+  if (ret < 0) {
+    ldout(rados->ctx(), 0) << "ERROR: unregister_watch() returned ret=" << ret << dendl;
+    return;
   }
+  ret = register_watch();
+  if (ret < 0) {
+    ldout(rados->ctx(), 0) << "ERROR: register_watch() returned ret=" << ret << dendl;
+    return;
+  }
+}
 
-  int unregister_watch() {
-    int r = rados->unwatch(watch_handle);
-    if (r < 0) {
-      return r;
-    }
-    rados->remove_watcher(index);
-    return 0;
+int RGWWatcher::unregister_watch() {
+  int r = rados->unwatch(watch_handle);
+  if (r < 0) {
+    return r;
   }
+  rados->remove_watcher(index);
+  return 0;
+}
 
-  int register_watch() {
-    int r = rados->watch(oid, &watch_handle, this);
-    if (r < 0) {
-      return r;
-    }
-    rados->add_watcher(index);
-    return 0;
+int RGWWatcher::register_watch() {
+  int r = rados->watch(oid, &watch_handle, this);
+  if (r < 0) {
+    return r;
   }
-};
+  rados->add_watcher(index);
+  return 0;
+}
 
 RGWObjState *RGWObjectCtx::get_state(rgw_obj& obj) {
   RGWObjState *result;

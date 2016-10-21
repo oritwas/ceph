@@ -3378,4 +3378,33 @@ public:
   }
 }; /* RGWPutObjProcessor_Atomic */
 
+class RGWWatcher : public librados::WatchCtx2 {
+  RGWRados *rados;
+  int index;
+  string oid;
+  uint64_t watch_handle;
+
+  class C_ReinitWatch : public Context {
+    RGWWatcher *watcher;
+    public:
+      explicit C_ReinitWatch(RGWWatcher *_watcher) : watcher(_watcher) {}
+      void finish(int r) {
+        watcher->reinit();
+      }
+  };
+public:
+  RGWWatcher(RGWRados *r, int i, const string& o) : rados(r), index(i), oid(o), watch_handle(0) {}
+  void handle_notify(uint64_t notify_id,
+		     uint64_t cookie,
+		     uint64_t notifier_id,
+		     bufferlist& bl);
+  void handle_error(uint64_t cookie, int err);
+
+  void reinit();
+
+  int unregister_watch();
+
+  int register_watch();
+};
+
 #endif
