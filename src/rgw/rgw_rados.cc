@@ -11580,6 +11580,11 @@ int RGWRados::bi_put(rgw_bucket& bucket, rgw_obj& obj, rgw_cls_bi_entry& entry)
   return bi_put(bs, entry);
 }
 
+void RGWRados::bi_insert(ObjectWriteOperation& op, BucketShard& bs, rgw_cls_bi_entry& entry)
+{
+  cls_rgw_bi_insert(op, bs.bucket_obj, entry);
+}
+
 int RGWRados::bi_list(rgw_bucket& bucket, const string& obj_name, const string& marker, uint32_t max, list<rgw_cls_bi_entry> *entries, bool *is_truncated)
 {
   rgw_obj obj(bucket, obj_name);

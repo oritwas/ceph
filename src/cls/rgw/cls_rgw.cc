@@ -42,6 +42,7 @@ cls_method_handle_t h_rgw_obj_check_attrs_prefix;
 cls_method_handle_t h_rgw_obj_check_mtime;
 cls_method_handle_t h_rgw_bi_get_op;
 cls_method_handle_t h_rgw_bi_put_op;
+cls_method_handle_t h_rgw_bi_insert_op;
 cls_method_handle_t h_rgw_bi_list_op;
 cls_method_handle_t h_rgw_bi_log_list_op;
 cls_method_handle_t h_rgw_dir_suggest_changes;
@@ -2281,6 +2282,37 @@ static int rgw_bi_put_op(cls_method_context_t hctx, bufferlist *in, bufferlist *
   return 0;
 }
 
+static int rgw_bi_insert_op(cls_method_context_t hctx, bufferlist *in, bufferlist *out)
+{
+  // decode request
+  rgw_cls_bi_insert_op op;
+  bufferlist::iterator iter = in->begin();
+  try {
+    ::decode(op, iter);
+  } catch (buffer::error& err) {
+    CLS_LOG(0, "ERROR: %s(): failed to decode request", __func__);
+    return -EINVAL;
+  }
+
+  rgw_cls_bi_entry& entry = op.entry;
+  bufferlist bl;
+  int r = cls_cxx_map_get_val(hctx, entry.idx, &bl);
+  if (r < 0) {
+    CLS_LOG(0, "ERROR: %s(): cls_cxx_map_set_val() returned r=%d", __func__, r);
+    return r;
+  } else if (r == 0) {
+    CLS_LOG(20, "this is exclusive insert and %s exists.", entry.idx.c_str());
+    return -EEXIST;
+  }
+
+  r = cls_cxx_map_set_val(hctx, entry.idx, &entry.data);
+  if (r < 0) {
+    CLS_LOG(0, "ERROR: %s(): cls_cxx_map_set_val() returned r=%d", __func__, r);
+  }
+
+  return 0;
+}
+
 static int list_plain_entries(cls_method_context_t hctx, const string& name, const string& marker, uint32_t max,
                               list<rgw_cls_bi_entry> *entries)
 {
@@ -3530,6 +3562,7 @@ void __cls_init()
 
   cls_register_cxx_method(h_class, "bi_get", CLS_METHOD_RD, rgw_bi_get_op, &h_rgw_bi_get_op);
   cls_register_cxx_method(h_class, "bi_put", CLS_METHOD_RD | CLS_METHOD_WR, rgw_bi_put_op, &h_rgw_bi_put_op);
+  cls_register_cxx_method(h_class, "bi_insert", CLS_METHOD_RD | CLS_METHOD_WR, rgw_bi_insert_op, &h_rgw_bi_insert_op);
   cls_register_cxx_method(h_class, "bi_list", CLS_METHOD_RD, rgw_bi_list_op, &h_rgw_bi_list_op);
 
   cls_register_cxx_method(h_class, "bi_log_list", CLS_METHOD_RD, rgw_bi_log_list, &h_rgw_bi_log_list_op);
