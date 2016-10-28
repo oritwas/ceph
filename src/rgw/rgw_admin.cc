@@ -2485,6 +2485,13 @@ int reshard_bucket(RGWRados *store,
     cerr << "failed to link new bucket instance (bucket_id=" << new_bucket_info.bucket.bucket_id << ": " << err << "; " << cpp_strerror(-r) << std::endl;
     return -r;
   }
+
+  /* wait for all writes to the old bucket index to complete */
+  if (online) {
+    cout << "Waiting for all writes to old bucket index to complete" << std::endl;
+    int sleep_duration = g_ceph_context->_conf->rgw_op_thread_timeout + 1;
+    sleep(sleep_duration);
+  }
   return 0;
 }
 
