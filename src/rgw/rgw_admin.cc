@@ -2030,7 +2030,8 @@ class BucketReshardShard {
   vector<rgw_cls_bi_entry> entries;
   map<uint8_t, rgw_bucket_category_stats> stats;
   deque<librados::AioCompletion *>& aio_completions;
-
+  bool exclusive;
+  
   int wait_next_completion() {
     librados::AioCompletion *c = aio_completions.front();
     aio_completions.pop_front();
@@ -2065,8 +2066,9 @@ class BucketReshardShard {
 public:
   BucketReshardShard(RGWRados *_store, RGWBucketInfo& _bucket_info,
                      int _num_shard,
-                     deque<librados::AioCompletion *>& _completions) : store(_store), bucket_info(_bucket_info), bs(store),
-                                                                       aio_completions(_completions) {
+                     deque<librados::AioCompletion *>& _completions,
+		     bool _exclusive) : store(_store), bucket_info(_bucket_info), bs(store),
+				       aio_completions(_completions), exclusive(_exclusive) {
     num_shard = (bucket_info.num_shards > 0 ? _num_shard : -1);
     bs.init(bucket_info.bucket, num_shard);
   }
@@ -2119,7 +2121,11 @@ public:
 
     librados::ObjectWriteOperation op;
     for (auto& entry : entries) {
-      store->bi_put(op, bs, entry);
+      if (exclusive) {
+	store->bi_insert(op, bs, entry);
+      } else {
+	store->bi_put(op, bs, entry);
+      }
     }
     cls_rgw_bucket_update_stats(op, false, stats);
 
@@ -2156,13 +2162,13 @@ class BucketReshardManager {
   deque<librados::AioCompletion *> completions;
   int num_target_shards;
   vector<BucketReshardShard *> target_shards;
-
 public:
-  BucketReshardManager(RGWRados *_store, RGWBucketInfo& _target_bucket_info, int _num_target_shards) : store(_store), target_bucket_info(_target_bucket_info),
-                                                                                                       num_target_shards(_num_target_shards) {
+  BucketReshardManager(RGWRados *_store, RGWBucketInfo& _target_bucket_info, int _num_target_shards,
+		       bool exclusive ) : store(_store), target_bucket_info(_target_bucket_info),
+					   num_target_shards(_num_target_shards) {
     target_shards.resize(num_target_shards);
     for (int i = 0; i < num_target_shards; ++i) {
-      target_shards[i] = new BucketReshardShard(store, target_bucket_info, i, completions);
+      target_shards[i] = new BucketReshardShard(store, target_bucket_info, i, completions, exclusive);
     }
   }
 
@@ -2382,7 +2388,7 @@ int reshard_bucket(RGWRados *store,
   cout << " put bucket instance info " << std::endl;
   int num_target_shards = (new_bucket_info.num_shards > 0 ? new_bucket_info.num_shards : 1);
 
-  BucketReshardManager target_shards_mgr(store, new_bucket_info, num_target_shards);
+  BucketReshardManager target_shards_mgr(store, new_bucket_info, num_target_shards, online);
 
   map<int, RGWBIWatcher*> watchers;
   if (online) {
