@@ -166,8 +166,6 @@ void req_info::rebuild_from(req_info& src)
   effective_uri.clear();
   host = src.host;
 
-  env->set("CONTENT_TYPE", src.env->get("CONTENT_TYPE"));
-  
   x_meta_map = src.x_meta_map;
   x_meta_map.erase("x-amz-date");
 }
