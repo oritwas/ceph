@@ -4771,16 +4771,16 @@ void RGWRados::shard_name(const string& prefix, unsigned shard_id, string& name)
 
 }
 
-void RGWRados::time_log_prepare_entry(cls_log_entry& entry, const real_time& ut, const string& section, const string& key, bufferlist& bl)
+void RGWRados::time_log_prepare_entry(cls_log_entry& entry, const real_time& ut, const string& section,
+				      const string& key, bufferlist& bl)
 {
   cls_log_add_prepare_entry(entry, utime_t(ut), section, key, bl);
 }
 
-int RGWRados::time_log_add_init(librados::IoCtx& io_ctx)
+int RGWRados::time_log_add_init(const string& log_pool, librados::IoCtx& io_ctx)
 {
-  const char *log_pool = get_zone_params().log_pool.name.c_str();
   librados::Rados *rad = get_rados_handle();
-  int r = rad->ioctx_create(log_pool, io_ctx);
+  int r = rad->ioctx_create(log_pool.c_str(), io_ctx);
   if (r == -ENOENT) {
     rgw_bucket pool(log_pool);
     r = create_pool(pool);
@@ -4788,7 +4788,7 @@ int RGWRados::time_log_add_init(librados::IoCtx& io_ctx)
       return r;
  
     // retry
-    r = rad->ioctx_create(log_pool, io_ctx);
+    r = rad->ioctx_create(log_pool.c_str(), io_ctx);
   }
   if (r < 0)
     return r;
@@ -4797,11 +4797,12 @@ int RGWRados::time_log_add_init(librados::IoCtx& io_ctx)
 
 }
 
-int RGWRados::time_log_add(const string& oid, const real_time& ut, const string& section, const string& key, bufferlist& bl)
+int RGWRados::time_log_add(const string& log_pool, const string& oid, const real_time& ut, const string& section,
+			   const string& key, bufferlist& bl)
 {
   librados::IoCtx io_ctx;
 
-  int r = time_log_add_init(io_ctx);
+  int r = time_log_add_init(log_pool, io_ctx);
   if (r < 0) {
     return r;
   }
@@ -4813,12 +4814,13 @@ int RGWRados::time_log_add(const string& oid, const real_time& ut, const string&
   return io_ctx.operate(oid, &op);
 }
 
-int RGWRados::time_log_add(const string& oid, list<cls_log_entry>& entries,
+int RGWRados::time_log_add( const string& log_pool, const string& oid,
+			   list<cls_log_entry>& entries,
 			   librados::AioCompletion *completion, bool monotonic_inc)
 {
   librados::IoCtx io_ctx;
 
-  int r = time_log_add_init(io_ctx);
+  int r = time_log_add_init(log_pool, io_ctx);
   if (r < 0) {
     return r;
   }
@@ -4834,7 +4836,9 @@ int RGWRados::time_log_add(const string& oid, list<cls_log_entry>& entries,
   return r;
 }
 
-int RGWRados::time_log_list(const string& oid, const real_time& start_time, const real_time& end_time,
+
+int RGWRados::time_log_list(const string& log_pool, const string& oid, const real_time& start_time,
+			    const real_time& end_time,
                             int max_entries, list<cls_log_entry>& entries,
 			    const string& marker,
 			    string *out_marker,
@@ -4842,9 +4846,8 @@ int RGWRados::time_log_list(const string& oid, const real_time& start_time, cons
 {
   librados::IoCtx io_ctx;
 
-  const char *log_pool = get_zone_params().log_pool.name.c_str();
   librados::Rados *rad = get_rados_handle();
-  int r = rad->ioctx_create(log_pool, io_ctx);
+  int r = rad->ioctx_create(log_pool.c_str(), io_ctx);
   if (r < 0)
     return r;
   librados::ObjectReadOperation op;
@@ -4864,13 +4867,12 @@ int RGWRados::time_log_list(const string& oid, const real_time& start_time, cons
   return 0;
 }
 
-int RGWRados::time_log_info(const string& oid, cls_log_header *header)
+int RGWRados::time_log_info(const string& log_pool, const string& oid, cls_log_header *header)
 {
   librados::IoCtx io_ctx;
 
-  const char *log_pool = get_zone_params().log_pool.name.c_str();
   librados::Rados *rad = get_rados_handle();
-  int r = rad->ioctx_create(log_pool, io_ctx);
+  int r = rad->ioctx_create(log_pool.c_str(), io_ctx);
   if (r < 0)
     return r;
   librados::ObjectReadOperation op;
@@ -4886,11 +4888,11 @@ int RGWRados::time_log_info(const string& oid, cls_log_header *header)
   return 0;
 }
 
-int RGWRados::time_log_info_async(librados::IoCtx& io_ctx, const string& oid, cls_log_header *header, librados::AioCompletion *completion)
+int RGWRados::time_log_info_async( const string& log_pool, librados::IoCtx& io_ctx,const string& oid,
+				  cls_log_header *header, librados::AioCompletion *completion)
 {
-  const char *log_pool = get_zone_params().log_pool.name.c_str();
   librados::Rados *rad = get_rados_handle();
-  int r = rad->ioctx_create(log_pool, io_ctx);
+  int r = rad->ioctx_create(log_pool.c_str(), io_ctx);
   if (r < 0)
     return r;
 
@@ -4905,15 +4907,15 @@ int RGWRados::time_log_info_async(librados::IoCtx& io_ctx, const string& oid, cl
   return 0;
 }
 
-int RGWRados::time_log_trim(const string& oid, const real_time& start_time, const real_time& end_time,
+int RGWRados::time_log_trim(const string& log_pool, const string& oid, const real_time& start_time,
+			    const real_time& end_time,
 			    const string& from_marker, const string& to_marker,
                             librados::AioCompletion *completion)
 {
   librados::IoCtx io_ctx;
 
-  const char *log_pool = get_zone_params().log_pool.name.c_str();
   librados::Rados *rad = get_rados_handle();
-  int r = rad->ioctx_create(log_pool, io_ctx);
+  int r = rad->ioctx_create(log_pool.c_str(), io_ctx);
   if (r < 0)
     return r;
 
@@ -4929,6 +4931,52 @@ int RGWRados::time_log_trim(const string& oid, const real_time& start_time, cons
     r = io_ctx.aio_operate(oid, completion, &op);
   }
   return r;
+}
+
+int RGWRados::time_log_add_init(librados::IoCtx& io_ctx)
+{
+  return time_log_add_init(get_zone_params().log_pool.name, io_ctx);
+}
+
+int RGWRados::time_log_add(const string& oid, const real_time& ut, const string& section,
+			   const string& key, bufferlist& bl)
+{
+  return time_log_add(get_zone_params().log_pool.name, oid, ut, section, key, bl);
+}
+
+int RGWRados::time_log_add(const string& oid, list<cls_log_entry>& entries,
+			   librados::AioCompletion *completion, bool monotonic_inc)
+{
+  return time_log_add(get_zone_params().log_pool.name, oid, entries, completion, monotonic_inc);
+}
+
+int RGWRados::time_log_list(const string& oid, const real_time& start_time, const real_time& end_time,
+                            int max_entries, list<cls_log_entry>& entries,
+			    const string& marker,
+			    string *out_marker,
+			    bool *truncated)
+{
+  return time_log_list(get_zone_params().log_pool.name, oid, start_time, end_time, max_entries, entries, marker,
+		       out_marker, truncated);
+}
+
+int RGWRados::time_log_info(const string& oid, cls_log_header *header)
+{
+  return time_log_info(get_zone_params().log_pool.name,oid, header);
+}
+
+int RGWRados::time_log_info_async(librados::IoCtx& io_ctx, const string& oid,
+				  cls_log_header *header, librados::AioCompletion *completion)
+{
+  return time_log_info_async(get_zone_params().log_pool.name, io_ctx, oid, header, completion);
+}
+
+int RGWRados::time_log_trim(const string& oid, const real_time& start_time, const real_time& end_time,
+			    const string& from_marker, const string& to_marker,
+                            librados::AioCompletion *completion)
+{
+  return time_log_trim(get_zone_params().log_pool.name, oid, start_time, end_time, from_marker,
+		       to_marker, completion);
 }
 
 string RGWRados::objexp_hint_get_shardname(int shard_num)
