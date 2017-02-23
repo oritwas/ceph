@@ -990,6 +990,7 @@ struct RGWZoneParams : RGWSystemMetaObj {
   rgw_bucket user_swift_pool;
   rgw_bucket user_uid_pool;
   rgw_bucket roles_pool;
+  rgw_bucket reshard_pool;
 
   RGWAccessKey system_key;
 
@@ -1023,7 +1024,7 @@ struct RGWZoneParams : RGWSystemMetaObj {
   const string& get_compression_type(const string& placement_rule) const;
   
   void encode(bufferlist& bl) const {
-    ENCODE_START(9, 1, bl);
+    ENCODE_START(10, 1, bl);
     ::encode(domain_root, bl);
     ::encode(control_pool, bl);
     ::encode(gc_pool, bl);
@@ -1042,6 +1043,7 @@ struct RGWZoneParams : RGWSystemMetaObj {
     ::encode(lc_pool, bl);
     ::encode(tier_config, bl);
     ::encode(roles_pool, bl);
+    ::encode(reshard_pool, bl);
     ENCODE_FINISH(bl);
   }
 
@@ -1084,6 +1086,11 @@ struct RGWZoneParams : RGWSystemMetaObj {
       ::decode(roles_pool, bl);
     } else {
       roles_pool = name + ".rgw.roles";
+    }
+    if (struct_v >= 10) {
+      ::decode(reshard_pool, bl);
+    } else {
+      reshard_pool = name + ".rgw.reshard";
     }
     DECODE_FINISH(bl);
   }
@@ -3087,7 +3094,7 @@ public:
   int time_log_trim(const string& oid, const ceph::real_time& start_time, const ceph::real_time& end_time,
                     const string& from_marker, const string& to_marker,
                     librados::AioCompletion *completion = nullptr);
-  
+
   string objexp_hint_get_shardname(int shard_num);
   int objexp_key_shard(const rgw_obj_key& key);
   void objexp_get_shard(int shard_num,
