@@ -3143,6 +3143,12 @@ public:
   int check_quota(const rgw_user& bucket_owner, rgw_bucket& bucket,
                   RGWQuotaInfo& user_quota, RGWQuotaInfo& bucket_quota, uint64_t obj_size);
 
+  void cls_reshard_add(cls_rgw_reshard_entry& entry);
+  int cls_reshard_list(string& oid, string& marker, uint32_t max, list<cls_rgw_reshard_entry>& entries,
+		       bool *is_truncated);
+  int cls_reshard_get_head(string& oid, cls_rgw_reshard_entry& entry);    
+  int cls_reshard_remove();
+
   uint64_t instance_id();
   const string& zone_id() {
     return get_zone_params().get_id();

@@ -12576,6 +12576,43 @@ int RGWRados::check_quota(const rgw_user& bucket_owner, rgw_bucket& bucket,
   return quota_handler->check_quota(bucket_owner, bucket, user_quota, bucket_quota, 1, obj_size);
 }
 
+void RGWRados::cls_reshard_add(cls_rgw_reshard_entry& entry)
+{
+  librados::ObjectWriteOperation op;
+  cls_rgw_reshard_add(op, entry);
+}
+
+int RGWRados::cls_reshard_list(string& oid, string& marker, uint32_t max, list<cls_rgw_reshard_entry>& entries,
+			       bool *is_truncated)
+{
+  librados::IoCtx io_ctx;
+  librados::Rados *rad = get_rados_handle();
+  int r = rad->ioctx_create(get_zone_params().reshard_pool.name.c_str(), io_ctx);
+  if (r < 0)
+    return r;
+  
+  return cls_rgw_reshard_list(io_ctx, oid, marker, max, entries, is_truncated);
+}
+
+int RGWRados::cls_reshard_get_head(string& oid, cls_rgw_reshard_entry& entry)
+{
+  librados::IoCtx io_ctx;
+  librados::Rados *rad = get_rados_handle();
+  int r = rad->ioctx_create(get_zone_params().reshard_pool.name.c_str(), io_ctx);
+  if (r < 0)
+    return r;
+
+  return cls_rgw_reshard_get_head(io_ctx, oid, entry);
+}
+
+int RGWRados::cls_reshard_remove()
+{
+  librados::ObjectWriteOperation op;
+  cls_rgw_reshard_remove(op);
+  
+}
+
+
 void RGWRados::get_bucket_index_objects(const string& bucket_oid_base,
     uint32_t num_shards, map<int, string>& bucket_objects, int shard_id)
 {
