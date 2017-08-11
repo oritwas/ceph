@@ -13257,6 +13257,11 @@ int RGWRados::add_bucket_to_reshard(const RGWBucketInfo& bucket_info, uint32_t n
 
   uint32_t num_source_shards = (bucket_info.num_shards > 0 ? bucket_info.num_shards : 1);
 
+  if (new_num_shards > get_max_bucket_shards()) {
+    ldout(cct, 20) << "bucket name=" << bucket_info.bucket.name << " new num of shards" << new_num_shards
+		   << "exceed max bucket shard" <<dendl;
+  }
+
   new_num_shards = min(new_num_shards, get_max_bucket_shards());
   if (new_num_shards <= num_source_shards) {
     ldout(cct, 20) << "not resharding bucket name=" << bucket_info.bucket.name << ", orig_num=" << num_source_shards << ", new_num_shards=" << new_num_shards << dendl;

@@ -5612,6 +5612,8 @@ next:
 
     RGWBucketReshard br(store, bucket_info, attrs);
 
+    num_shards = (num_shards > 0 ? num_shards : 1);
+
 #define DEFAULT_RESHARD_MAX_ENTRIES 1000
     if (max_entries < 1) {
       max_entries = DEFAULT_RESHARD_MAX_ENTRIES;
@@ -5641,6 +5643,7 @@ next:
     }
 
     int num_source_shards = (bucket_info.num_shards > 0 ? bucket_info.num_shards : 1);
+    num_shards = (num_shards > 0 ? num_shards : 1);
 
     RGWReshard reshard(store);
     cls_rgw_reshard_entry entry;
