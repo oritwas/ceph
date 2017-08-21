@@ -13234,9 +13234,13 @@ int RGWRados::check_bucket_shards(const RGWBucketInfo& bucket_info, const rgw_bu
   int num_source_shards = (bucket_info.num_shards > 0 ? bucket_info.num_shards : 1);
   uint32_t suggested_num_shards;
 
+
   int ret =  quota_handler->check_bucket_shards((uint64_t)cct->_conf->rgw_max_objs_per_shard,
 						num_source_shards,  bucket_info.owner, bucket, bucket_quota,
 						1, need_resharding, &suggested_num_shards);
+  ldout(cct, 0) << __func__ << " bucket " << bucket.name << " need resharding " << need_resharding <<
+    " old num shards " << bucket_info.num_shards << " new num shards " << suggested_num_shards <<
+    dendl;
   if (ret < 0) {
     return ret;
   }
@@ -13258,6 +13262,8 @@ int RGWRados::add_bucket_to_reshard(const RGWBucketInfo& bucket_info, uint32_t n
   uint32_t num_source_shards = (bucket_info.num_shards > 0 ? bucket_info.num_shards : 1);
 
   new_num_shards = min(new_num_shards, get_max_bucket_shards());
+  ldout(cct, 0) << __func__ << " bucket =" << bucket_info.bucket.name << ", orig_num=" << num_source_shards << ", new_num_shards=" << new_num_shards << dendl;
+
   if (new_num_shards <= num_source_shards) {
     ldout(cct, 20) << "not resharding bucket name=" << bucket_info.bucket.name << ", orig_num=" << num_source_shards << ", new_num_shards=" << new_num_shards << dendl;
     return 0;

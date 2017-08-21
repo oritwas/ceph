@@ -975,9 +975,14 @@ public:
     RGWStorageStats bucket_stats;
     int ret = bucket_stats_cache.get_stats(user, bucket, bucket_stats,
                                            bucket_quota);
+
     if (ret < 0) {
       return ret;
     }
+
+    ldout(store->ctx(), 0) << __func__ << ":  stats.num_objects=" << bucket_stats.num_objects << " num_objs "
+			   << num_objs  << " num_shards " << num_shards << " shard max_objects=" <<
+                           max_objs_per_shard * num_shards << dendl;
 
     if (bucket_stats.num_objects  + num_objs > num_shards * max_objs_per_shard) {
       ldout(store->ctx(), 0) << __func__ << ": resharding needed: stats.num_objects=" << bucket_stats.num_objects
