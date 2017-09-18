@@ -178,7 +178,7 @@ static void gen_obj(test_rgw_env& env, uint64_t obj_size, uint64_t head_max_size
   ASSERT_EQ(manifest->has_tail(), (obj_size > head_max_size));
 }
 
-static void gen_old_obj(test_rgw_env& env, uint64_t obj_size, uint64_t head_max_size, uint64_t stripe_size,
+static int gen_old_obj(test_rgw_env& env, uint64_t obj_size, uint64_t head_max_size, uint64_t stripe_size,
                     OldObjManifest *manifest, old_rgw_bucket *bucket, old_rgw_obj *head,
                     list<old_rgw_obj> *test_objs)
 {
@@ -195,7 +195,11 @@ static void gen_old_obj(test_rgw_env& env, uint64_t obj_size, uint64_t head_max_
   test_objs->push_back(part.loc);
 
   string prefix;
-  append_rand_alpha(g_ceph_context, prefix, prefix, 16);
+  int ret  = append_rand_alpha(g_ceph_context, prefix, prefix, 16);
+  if (ret < 0) {
+    return ret;
+  }
+
 
   int i = 0;
   for (uint64_t ofs = head_max_size; ofs < obj_size; ofs += stripe_size, i++) {

@@ -2391,13 +2391,16 @@ bool RGWObjManifest::get_rule(uint64_t ofs, RGWObjManifestRule *rule)
   return true;
 }
 
-void RGWObjVersionTracker::generate_new_write_ver(CephContext *cct)
+int RGWObjVersionTracker::generate_new_write_ver(CephContext *cct)
 {
   write_version.ver = 1;
 #define TAG_LEN 24
 
   write_version.tag.clear();
-  append_rand_alpha(cct, write_version.tag, write_version.tag, TAG_LEN);
+  int ret = append_rand_alpha(cct, write_version.tag, write_version.tag, TAG_LEN);
+  if (ret < 0) {
+    ldout(cct, 0) << "error in generating random"<< dendl;
+  }
 }
 
 int RGWPutObjProcessor::complete(size_t accounted_size, const string& etag,
@@ -7516,7 +7519,11 @@ int RGWRados::stat_remote_obj(RGWObjectCtx& obj_ctx,
   RGWRESTStreamRWRequest *in_stream_req;
   string tag;
   map<string, bufferlist> src_attrs;
-  append_rand_alpha(cct, tag, tag, 32);
+  int ret = append_rand_alpha(cct, tag, tag, 32);
+  if (ret < 0) {
+    ldout(cct, 0) << "error in generating random"<< dendl;
+    return ret;
+  }
   obj_time_weight set_mtime_weight;
   set_mtime_weight.high_precision = high_precision_time;
 
@@ -7556,7 +7563,7 @@ int RGWRados::stat_remote_obj(RGWObjectCtx& obj_ctx,
   constexpr bool rgwx_stat = true;
   constexpr bool sync_manifest = true;
   constexpr bool skip_decrypt = true;
-  int ret = conn->get_obj(user_id, info, src_obj, pmod, unmod_ptr,
+  ret = conn->get_obj(user_id, info, src_obj, pmod, unmod_ptr,
                       dest_mtime_weight.zone_short_id, dest_mtime_weight.pg_ver,
                       prepend_meta, get_op, rgwx_stat,
                       sync_manifest, skip_decrypt, &cb, &in_stream_req);
@@ -7637,7 +7644,11 @@ int RGWRados::fetch_remote_obj(RGWObjectCtx& obj_ctx,
   RGWRESTStreamRWRequest *in_stream_req;
   string tag;
   int i;
-  append_rand_alpha(cct, tag, tag, 32);
+  int ret = append_rand_alpha(cct, tag, tag, 32);
+  if (ret < 0) {
+    ldout(cct, 0) << "error in generating random"<< dendl;
+    return ret;
+  }
   obj_time_weight set_mtime_weight;
   set_mtime_weight.high_precision = high_precision_time;
 
@@ -7648,7 +7659,7 @@ int RGWRados::fetch_remote_obj(RGWObjectCtx& obj_ctx,
     processor.set_version_id(*version_id);
   }
   processor.set_olh_epoch(olh_epoch);
-  int ret = processor.prepare(this, NULL);
+  ret = processor.prepare(this, NULL);
   if (ret < 0) {
     return ret;
   }
@@ -7943,7 +7954,11 @@ int RGWRados::copy_obj(RGWObjectCtx& obj_ctx,
   bool remote_src;
   bool remote_dest;
 
-  append_rand_alpha(cct, dest_obj.get_oid(), shadow_oid, 32);
+  ret = append_rand_alpha(cct, dest_obj.get_oid(), shadow_oid, 32);
+    if (ret < 0) {
+    ldout(cct, 0) << "error in generating random"<< dendl;
+    return ret;
+  }
   shadow_obj.init_ns(dest_obj.bucket, shadow_oid, shadow_ns);
 
   remote_dest = !get_zonegroup().equals(dest_bucket_info.zonegroup);
@@ -8092,7 +8107,11 @@ int RGWRados::copy_obj(RGWObjectCtx& obj_ctx,
   }
 
   if (tag.empty()) {
-    append_rand_alpha(cct, tag, tag, 32);
+    ret = append_rand_alpha(cct, tag, tag, 32);
+    if (ret < 0) {
+      ldout(cct, 0) << "error in generating random"<< dendl;
+      return ret;
+    }
   }
 
   if (!copy_itself) {
@@ -8193,7 +8212,11 @@ int RGWRados::copy_obj_data(RGWObjectCtx& obj_ctx,
   RGWObjManifest manifest;
 
   string tag;
-  append_rand_alpha(cct, tag, tag, 32);
+  int ret = append_rand_alpha(cct, tag, tag, 32);
+  if (ret < 0) {
+    ldout(cct, 0) << "error in generating random"<< dendl;
+    return ret;
+  }
 
   RGWPutObjProcessor_Atomic processor(obj_ctx,
                                       dest_bucket_info, dest_obj.bucket, dest_obj.get_oid(),
@@ -8202,7 +8225,7 @@ int RGWRados::copy_obj_data(RGWObjectCtx& obj_ctx,
     processor.set_version_id(*version_id);
   }
   processor.set_olh_epoch(olh_epoch);
-  int ret = processor.prepare(this, NULL);
+  ret = processor.prepare(this, NULL);
   if (ret < 0)
     return ret;
 
@@ -9533,7 +9556,11 @@ int RGWRados::Object::prepare_atomic_modification(ObjectWriteOperation& op, bool
   if (ptag) {
     state->write_tag = *ptag;
   } else {
-    append_rand_alpha(store->ctx(), state->write_tag, state->write_tag, 32);
+    r = append_rand_alpha(store->ctx(), state->write_tag, state->write_tag, 32);
+    if (r < 0) {
+      ldout(sotr->ctx(), 0) << "error in generating random"<< dendl;
+      reutrn r;
+    }
   }
   bufferlist bl;
   bl.append(state->write_tag.c_str(), state->write_tag.size() + 1);
@@ -9680,7 +9707,12 @@ int RGWRados::set_attrs(void *ctx, const RGWBucketInfo& bucket_info, rgw_obj& ob
 
   if (state) {
     string tag;
-    append_rand_alpha(cct, tag, tag, 32);
+    r = append_rand_alpha(cct, tag, tag, 32);
+    if (r < 0) {
+      ldout(cct, 0) << "error in generating random"<< dendl;
+      return r;
+    }
+
     state->write_tag = tag;
     r = index_op.prepare(CLS_RGW_OP_ADD, &state->write_tag);
 
@@ -9956,11 +9988,15 @@ int RGWRados::Bucket::UpdateIndex::prepare(RGWModifyOp op, const string *write_t
     optag = string(write_tag->c_str(), write_tag->length());
   } else {
     if (optag.empty()) {
-      append_rand_alpha(store->ctx(), optag, optag, 32);
+      r = append_rand_alpha(store->ctx(), optag, optag, 32);
+      if (r < 0) {
+	ldout(cct, 0) << "error in generating random"<< dendl;
+	return r;
+      }
     }
   }
 
-  int r = guard_reshard(nullptr, [&](BucketShard *bs) -> int { 
+  r = guard_reshard(nullptr, [&](BucketShard *bs) -> int {
     return store->cls_obj_prepare_op(*bs, op, optag, obj, bilog_flags, zones_trace);
   });
 

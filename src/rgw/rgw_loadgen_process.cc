@@ -41,11 +41,15 @@ void RGWLoadGenProcess::run()
 
   std::atomic<bool> failed = { false };
 
+  int ret;
   for (i = 0; i < num_buckets; i++) {
     buckets[i] = "/loadgen";
     string& bucket = buckets[i];
-    append_rand_alpha(NULL, bucket, bucket, 16);
-
+    ret = append_rand_alpha(NULL, bucket, bucket, 16);
+    if (ret < 0) {
+      derr < "ERROR: creating random alpha" << dendl;
+      goto done;
+    }
     /* first create a bucket */
     gen_request("PUT", bucket, 0, &failed);
     checkpoint();

@@ -2136,11 +2136,14 @@ static inline int rgw_str_to_bool(const char *s, int def_val)
           strcasecmp(s, "1") == 0);
 }
 
-static inline void append_rand_alpha(CephContext *cct, const string& src, string& dest, int len)
+static inline int append_rand_alpha(CephContext *cct, const string& src, string& dest, int len)
 {
   dest = src;
   char buf[len + 1];
-  gen_rand_alphanumeric(cct, buf, len);
+  int ret = gen_rand_alphanumeric(cct, buf, len);
+  if (ret < 0) {
+    return ret;
+  }
   dest.append("_");
   dest.append(buf);
 }
