@@ -471,11 +471,20 @@ int RGWBucketReshard::do_reshard(
 
   RGWBucketAdminOpState bucket_op;
 
+  bucket_op.set_bucket_name(bucket_info.bucket.name);
+  bucket_op.set_bucket_id(bucket_info.bucket.bucket_id);
+  bucket_op.set_user_id(bucket_info.owner);
+  int r = RGWBucketAdminOp::unlink(store, bucket_op);
+  if (r < 0) {
+    lderr(store->ctx()) << "failed to unlink old bucket instance (bucket_id=" << bucket_info.bucket.bucket_id << ": " << cpp_strerror(-r) << ")" << dendl;
+    return -r;
+  }
+
   bucket_op.set_bucket_name(new_bucket_info.bucket.name);
   bucket_op.set_bucket_id(new_bucket_info.bucket.bucket_id);
   bucket_op.set_user_id(new_bucket_info.owner);
   string err;
-  int r = RGWBucketAdminOp::link(store, bucket_op, &err);
+  r = RGWBucketAdminOp::link(store, bucket_op, &err);
   if (r < 0) {
     lderr(store->ctx()) << "failed to link new bucket instance (bucket_id=" << new_bucket_info.bucket.bucket_id << ": " << err << "; " << cpp_strerror(-r) << ")" << dendl;
     return -r;
