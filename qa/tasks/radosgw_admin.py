@@ -271,12 +271,13 @@ def task(ctx, config):
         "radosgw_admin task needs a config passed from the rgw task"
     config = ctx.rgw.config
     log.debug('config is: %r', config)
-
+    print config
     clients_from_config = config.keys()
 
     # choose first client as default
     client = clients_from_config[0]
-
+    print client
+    print ctx.rgw.role_endpoints
     # once the client is chosen, pull the host name and  assigned port out of
     # the role_endpoints that were assigned by the rgw task
     (remote_host, remote_port) = ctx.rgw.role_endpoints[client]
@@ -938,19 +939,20 @@ def main():
         sys.stderr.write("usage: radosgw_admin.py [user] host\n")
 	exit(1)
     client0 = remote.Remote(user + host)
+    print config
     ctx = config
     ctx.cluster=cluster.Cluster(remotes=[(client0,
-     [ 'ceph.client.rgw.%s' % (host),  ]),])
+     [ 'ceph.client.rgw',  ]),])
 
     ctx.rgw = argparse.Namespace()
     endpoints = {}
-    endpoints['ceph.client.rgw.%s' % host] = (host, 80)
+    endpoints['ceph.client.rgw'] = (host, 8000)
     ctx.rgw.role_endpoints = endpoints
     ctx.rgw.realm = None
     ctx.rgw.regions = {'region0': { 'api name': 'api1',
 	    'is master': True, 'master zone': 'r0z0',
 	    'zones': ['r0z0', 'r0z1'] }}
-    ctx.rgw.config = {'ceph.client.rgw.%s' % host: {'system user': {'name': '%s-system-user' % host}}}
+    ctx.rgw.config = {'ceph.client.rgw' : {'system user': {'name': '%s-system-user' % host}}}
     task(config, None)
     exit()
 
