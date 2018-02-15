@@ -5664,6 +5664,11 @@ next:
   }
 
   if (opt_cmd == OPT_BUCKET_RESHARD) {
+    if (!store->is_meta_master()) {
+      cerr << "failed to reshard bucket : only allowed on meta master zone "  << std::endl;
+      return EINVAL;
+    }
+
     rgw_bucket bucket;
     RGWBucketInfo bucket_info;
     map<string, bufferlist> attrs;
@@ -5694,6 +5699,11 @@ next:
   }
 
   if (opt_cmd == OPT_RESHARD_ADD) {
+    if (!store->is_meta_master()) {
+      cerr << "failed to schedule bucket reshard: only allowed on meta master zone "  << std::endl;
+      return EINVAL;
+    }
+
     rgw_bucket bucket;
     RGWBucketInfo bucket_info;
     map<string, bufferlist> attrs;
@@ -5768,7 +5778,6 @@ next:
     return 0;
   }
 
-
   if (opt_cmd == OPT_RESHARD_STATUS) {
     if (bucket_name.empty()) {
       cerr << "ERROR: bucket not specified" << std::endl;
@@ -5797,6 +5806,11 @@ next:
   }
 
   if (opt_cmd == OPT_RESHARD_PROCESS) {
+    if (!store->is_meta_master()) {
+      cerr << "failed to process resharding: only allowed on meta master zone "  << std::endl;
+      return EINVAL;
+    }
+
     RGWReshard reshard(store, true, &cout);
 
     int ret = reshard.process_all_logshards();
@@ -5807,6 +5821,11 @@ next:
   }
 
   if (opt_cmd == OPT_RESHARD_CANCEL) {
+    if (!store->is_meta_master()) {
+      cerr << "failed to cancle bucket reshard : only allowed on meta master zone "  << std::endl;
+      return EINVAL;
+    }
+
     RGWReshard reshard(store);
 
     if (bucket_name.empty()) {
