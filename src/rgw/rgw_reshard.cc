@@ -512,9 +512,39 @@ int RGWBucketReshard::execute(int num_shards, int max_op_entries,
                               bool verbose, ostream *out, Formatter *formatter, RGWReshard* reshard_log)
 
 {
+  if (!store->is_meta_master()) {
+    ldout(store->ctx(), 0) << __func__ << " : only meta master can reshard buckets " << dendl;
+    return 0;
+  }
+
   int ret = lock_bucket();
   if (ret < 0) {
     return ret;
+  }
+
+  bool is_syncing = bucket_info.datasync_flag_enabled();;
+  if (is_syncing) {
+    /* disable syncing */
+    bucket_info.flags |= BUCKET_DATASYNC_DISABLED;
+    ret = store->put_bucket_instance_info(bucket_info, false, real_time(), &bucket_attrs);
+    if (ret < 0) {
+      ldout(store->ctx(), 0)  << "ERROR: failed writing bucket instance info: " << cpp_strerror(-ret) << dendl;
+      return -ret;
+    }
+    ret = store->stop_bi_log_entries(bucket_info, -1);
+    if (ret < 0) {
+      ldout(store->ctx(), 0) << __func__ << ":ERROR: failed writing stop bilog" << dendl;
+      return ret;
+    }
+    int shards_num = bucket_info.num_shards? bucket_info.num_shards : 1;
+    int shard_id = bucket_info.num_shards? 0 : -1;
+    for (int i = 0; i < shards_num; ++i, ++shard_id) {
+      ret = store->data_log->add_entry(bucket_info.bucket, shard_id);
+      if (ret < 0) {
+	ldout(store->ctx(), 0) << "ERROR: failed writing data log" << dendl;
+	return ret;
+      }
+    }
   }
 
   RGWBucketInfo new_bucket_info;
@@ -552,6 +582,30 @@ int RGWBucketReshard::execute(int num_shards, int max_op_entries,
   if (ret < 0) {
     unlock_bucket();
     return ret;
+  }
+
+  if (is_syncing) {
+    /* enable syncing */
+    new_bucket_info.flags &= BUCKET_DATASYNC_DISABLED;
+    ret = store->put_bucket_instance_info(new_bucket_info, false, real_time(), &bucket_attrs);
+    if (ret < 0) {
+      ldout(store->ctx(), 0)  << "ERROR: failed writing bucket instance info: " << cpp_strerror(-ret) << dendl;
+      return -ret;
+    }
+    ret = store->stop_bi_log_entries(new_bucket_info, -1);
+    if (ret < 0) {
+      ldout(store->ctx(), 0) << __func__ << ":ERROR: failed writing stop bilog" << dendl;
+      return ret;
+    }
+    int shards_num = new_bucket_info.num_shards? new_bucket_info.num_shards : 1;
+    int shard_id = new_bucket_info.num_shards? 0 : -1;
+    for (int i = 0; i < shards_num; ++i, ++shard_id) {
+      ret = store->data_log->add_entry(new_bucket_info.bucket, shard_id);
+      if (ret < 0) {
+	ldout(store->ctx(), 0) << "ERROR: failed writing data log" << dendl;
+	return ret;
+      }
+    }
   }
 
   unlock_bucket();
