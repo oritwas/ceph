@@ -522,7 +522,7 @@ int RGWBucketReshard::execute(int num_shards, int max_op_entries,
     return ret;
   }
 
-  bool is_syncing = bucket_info.datasync_flag_enabled();;
+  bool is_syncing = store->is_multisite() && bucket_info.datasync_flag_enabled();
   if (is_syncing) {
     /* disable syncing */
     bucket_info.flags |= BUCKET_DATASYNC_DISABLED;
