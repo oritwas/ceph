@@ -36,6 +36,11 @@ class RGWBucketReshard {
                  bool verbose,
                  ostream *os,
 		 Formatter *formatter);
+  int do_recalc_stats(
+                 int max_entries,
+		 bool verbose,
+		 ostream *out,
+		 Formatter *formatter);
 public:
   RGWBucketReshard(RGWRados *_store, const RGWBucketInfo& _bucket_info,
                    const std::map<string, bufferlist>& _bucket_attrs);
@@ -47,6 +52,10 @@ public:
   int abort();
   int get_status(std::list<cls_rgw_bucket_instance_entry> *status);
   int cancel();
+  int recalc_stats(int num_shards, int max_op_entries,
+              bool verbose = false, ostream *out = nullptr,
+              Formatter *formatter = nullptr);
+
 };
 
 class RGWReshard {

@@ -1,4 +1,4 @@
-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+// -*- mode:C++; tab-width:8; c-basic-offset_:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 
 #include "rgw_rados.h"
@@ -496,6 +496,154 @@ int RGWBucketReshard::do_reshard(
   return 0;
 }
 
+int RGWBucketReshard::do_recalc_stats(
+		   int max_entries,
+                   bool verbose,
+                   ostream *out,
+		   Formatter *formatter)
+{
+  rgw_bucket& bucket = bucket_info.bucket;
+
+  int ret = 0;
+
+  if (out) {
+    (*out) << "tenant: " << bucket_info.bucket.tenant << std::endl;
+    (*out) << "bucket name: " << bucket_info.bucket.name << std::endl;
+    (*out) << "bucket instance id: " << bucket_info.bucket.bucket_id << std::endl;
+  }
+
+  /* update bucket info  -- in progress*/
+  list<rgw_cls_bi_entry> entries;
+
+  if (max_entries < 0) {
+    ldout(store->ctx(), 0) << __func__ << ": can't reshard, negative max_entries" << dendl;
+    return -EINVAL;
+  }
+
+  BucketInfoReshardUpdate bucket_info_updater(store, bucket_info, bucket_attrs, bucket_info.bucket.bucket_id);
+
+  ret = bucket_info_updater.start();
+  if (ret < 0) {
+    ldout(store->ctx(), 0) << __func__ << ": failed to update bucket info ret=" << ret << dendl;
+    return ret;
+  }
+
+  verbose = verbose && (formatter != nullptr);
+
+  if (verbose) {
+    formatter->open_array_section("entries");
+  }
+
+  uint64_t total_entries = 0;
+
+  if (!verbose) {
+    cout << "total entries:";
+  }
+
+  int num_source_shards = (bucket_info.num_shards > 0 ? bucket_info.num_shards : 1);
+  string marker;
+  map<uint8_t, rgw_bucket_category_stats> stats;
+
+  for (int i = 0; i < num_source_shards; ++i) {
+    bool is_truncated = true;
+    marker.clear();
+    while (is_truncated) {
+      entries.clear();
+      ret = store->bi_list(bucket, i, string(), marker, max_entries, &entries, &is_truncated);
+      if (ret < 0 && ret != -ENOENT) {
+	derr << "ERROR: bi_list(): " << cpp_strerror(-ret) << dendl;
+	return -ret;
+      }
+
+      list<rgw_cls_bi_entry>::iterator iter;
+      for (iter = entries.begin(); iter != entries.end(); ++iter) {
+	rgw_cls_bi_entry& entry = *iter;
+
+	if (verbose) {
+	  formatter->open_object_section("entry");
+
+	  encode_json("shard_id", i, formatter);
+	  encode_json("num_entry", total_entries, formatter);
+	  encode_json("entry", entry, formatter);
+	}
+	total_entries++;
+
+	cls_rgw_obj_key cls_key;
+	uint8_t category;
+	rgw_bucket_category_stats entry_stats;
+	bool account = entry.get_info(&cls_key, &category, &entry_stats);
+
+	if (account) {
+	  rgw_bucket_category_stats& target = stats[category];
+	  target.num_entries += entry_stats.num_entries;
+	  target.total_size += entry_stats.total_size;
+	  target.total_size_rounded += entry_stats.total_size_rounded;
+	}
+
+	marker = entry.idx;
+
+	if (verbose) {
+	  formatter->close_section();
+	  if (out) {
+	    formatter->flush(*out);
+	    formatter->flush(*out);
+	  }
+	} else if (out && !(total_entries % 1000)) {
+	  (*out) << " " << total_entries;
+	}
+      }
+    }
+  }
+
+  
+  librados::ObjectWriteOperation op;
+  cls_rgw_bucket_update_stats(op, true, stats);
+
+  librados::IoCtx index_ctx;
+  map<int, string> bucket_objs;
+  ret = store->open_bucket_index(bucket_info, index_ctx,bucket_objs);
+  if (ret < 0) {
+    return ret;
+  }
+  for (auto i : bucket_objs) {
+    ret = index_ctx.operate(i.second, &op);
+    if (ret < 0) {
+      derr << "ERROR: cls_rgw_bucket_update_stats " << cpp_strerror(-ret) << dendl;
+      return ret;
+    }
+  }
+
+  if (verbose) {
+    formatter->close_section();
+    formatter->open_object_section("stats");
+    for ( auto e : stats) {
+      encode_json("category", (int)e.first, formatter);
+      encode_json("stats", e.second, formatter);
+    }
+    formatter->close_section();
+    if (out) {
+      formatter->flush(*out);
+    }
+  } else if (out) {
+    (*out) << " stats:" << std::endl;
+    for ( auto e : stats) {
+      (*out) << "  category " << e.first << std::endl;
+      (*out) << "  total_size " << e.second.total_size << std::endl;
+      (*out) << "  total_size_rounded " << e.second.total_size_rounded << std::endl;
+      (*out) << "  num_entries " << e.second.num_entries << std::endl;
+      (*out) << "  actual_size " << e.second.actual_size << std::endl;
+    }
+    (*out) << " " << total_entries << std::endl;
+  }
+
+  ret = bucket_info_updater.complete();
+  if (ret < 0) {
+    ldout(store->ctx(), 0) << __func__ << ": failed to update bucket info ret=" << ret << dendl;
+    /* don't error out, reshard process succeeded */
+  }
+  return 0;
+}
+
 int RGWBucketReshard::get_status(list<cls_rgw_bucket_instance_entry> *status)
 {
   librados::IoCtx index_ctx;
@@ -572,6 +720,38 @@ int RGWBucketReshard::execute(int num_shards, int max_op_entries,
   return 0;
 }
 
+int RGWBucketReshard::recalc_stats(int num_shards,int max_op_entries,
+                              bool verbose, ostream *out, Formatter *formatter)
+
+{
+  int ret = lock_bucket();
+  if (ret < 0) {
+    return ret;
+  }
+
+  ret = set_resharding_status(bucket_info.bucket.bucket_id, num_shards, CLS_RGW_RESHARD_IN_PROGRESS);
+  if (ret < 0) {
+    unlock_bucket();
+    return ret;
+  }
+
+  ret = do_recalc_stats(max_op_entries, verbose, out, formatter);
+
+  if (ret < 0) {
+    unlock_bucket();
+    return ret;
+  }
+
+  ret = set_resharding_status(bucket_info.bucket.bucket_id, num_shards, CLS_RGW_RESHARD_DONE);
+  if (ret < 0) {
+    unlock_bucket();
+    return ret;
+  }
+
+  unlock_bucket();
+
+  return 0;
+}
 
 RGWReshard::RGWReshard(RGWRados* _store, bool _verbose, ostream *_out,
                        Formatter *_formatter) : store(_store), instance_lock(bucket_instance_lock_name),
