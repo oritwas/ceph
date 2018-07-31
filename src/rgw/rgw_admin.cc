@@ -89,6 +89,7 @@ void usage()
   cout << "  bucket rewrite             rewrite all objects in the specified bucket\n";
   cout << "  bucket sync disable        disable bucket sync\n";
   cout << "  bucket sync enable         enable bucket sync\n";
+  cout << "  bucket recalc-stats        recalculate bucket stats\n";
   cout << "  bi get                     retrieve bucket index object entries\n";
   cout << "  bi put                     store bucket index object entries\n";
   cout << "  bi list                    list raw bucket index entries\n";
@@ -374,6 +375,7 @@ enum {
   OPT_BUCKET_RM,
   OPT_BUCKET_REWRITE,
   OPT_BUCKET_RESHARD,
+  OPT_BUCKET_RECALC_STATS,
   OPT_POLICY,
   OPT_POOL_ADD,
   OPT_POOL_RM,
@@ -2493,7 +2495,7 @@ int check_reshard_bucket_params(RGWRados *store,
 	 << "do you really mean it? (requires --yes-i-really-mean-it)" << std::endl;
     return -EINVAL;
   }
-  return 0;
+   return 0;
 }
 
 int create_new_bucket_instance(RGWRados *store,
@@ -6047,6 +6049,29 @@ next:
 
     return br.execute(num_shards, max_entries,
                       verbose, &cout, formatter);
+  }
+
+  if (opt_cmd == OPT_BUCKET_RECALC_STATS) {
+    if (bucket_name.empty()) {
+      cerr << "ERROR: bucket not specified" << std::endl;
+      return -EINVAL;
+    }
+
+    rgw_bucket bucket;
+    RGWBucketInfo bucket_info;
+    map<string, bufferlist> attrs;
+    int ret = init_bucket(tenant, bucket_name, bucket_id, bucket_info, bucket, &attrs);
+    if (ret < 0) {
+      cerr << "ERROR: could not init bucket: " << cpp_strerror(-ret) << std::endl;
+      return -ret;
+    }
+
+    int num_source_shards = (bucket_info.num_shards > 0 ? bucket_info.num_shards : 1);
+
+    RGWBucketReshard br(store, bucket_info, attrs);
+
+    return br.recalc_stats(num_source_shards, max_entries,
+			   verbose, &cout, formatter);
   }
 
   if (opt_cmd == OPT_RESHARD_ADD) {
